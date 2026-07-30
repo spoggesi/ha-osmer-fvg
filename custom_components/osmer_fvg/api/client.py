@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import aiohttp
@@ -31,7 +32,6 @@ class OsmerApiClient:
         session: aiohttp.ClientSession,
     ) -> None:
         """Initialize client."""
-
         self._session = session
 
     async def _get(
@@ -42,10 +42,7 @@ class OsmerApiClient:
 
         url = f"{BASE_URL}{endpoint}"
 
-        _LOGGER.debug(
-            "GET %s",
-            url,
-        )
+        _LOGGER.debug("GET %s", url)
 
         try:
             async with self._session.get(
@@ -53,11 +50,12 @@ class OsmerApiClient:
                 timeout=20,
             ) as response:
                 response.raise_for_status()
-
                 return await response.json()
 
         except aiohttp.ClientError as err:
-            raise OsmerConnectionError(f"Unable to connect to {url}") from err
+            raise OsmerConnectionError(
+                f"Unable to connect to {url}"
+            ) from err
 
     async def get_stations(self) -> list[Station]:
         """Return available stations."""
@@ -65,14 +63,37 @@ class OsmerApiClient:
         data = await self._get("/stations")
 
         if data.get("result") != "OK":
-            raise OsmerApiResponseError("Unexpected stations response")
+            raise OsmerApiResponseError(
+                "Unexpected stations response"
+            )
 
         stations = data.get("stations")
 
         if stations is None:
-            raise OsmerApiResponseError("Missing stations")
+            raise OsmerApiResponseError(
+                "Missing stations"
+            )
 
-        return [parse_station(station) for station in stations]
+        return [
+            parse_station(station)
+            for station in stations
+        ]
+
+    async def get_station(
+        self,
+        station_id: int,
+    ) -> Station:
+        """Return a single station."""
+
+        stations = await self.get_stations()
+
+        for station in stations:
+            if station.id == station_id:
+                return station
+
+        raise OsmerApiResponseError(
+            f"Station {station_id} not found"
+        )
 
     async def get_sensors(
         self,
@@ -80,17 +101,26 @@ class OsmerApiClient:
     ) -> list[Sensor]:
         """Return sensors for station."""
 
-        data = await self._get(f"/stations/{station_id}/sensors")
+        data = await self._get(
+            f"/stations/{station_id}/sensors"
+        )
 
         if data.get("result") != "OK":
-            raise OsmerApiResponseError("Unexpected sensors response")
+            raise OsmerApiResponseError(
+                "Unexpected sensors response"
+            )
 
         sensors = data.get("sensors")
 
         if sensors is None:
-            raise OsmerApiResponseError("Missing sensors")
+            raise OsmerApiResponseError(
+                "Missing sensors"
+            )
 
-        return [parse_sensor(sensor) for sensor in sensors]
+        return [
+            parse_sensor(sensor)
+            for sensor in sensors
+        ]
 
     async def get_sensor_by_code(
         self,
@@ -99,7 +129,9 @@ class OsmerApiClient:
     ) -> Sensor | None:
         """Return sensor by code."""
 
-        sensors = await self.get_sensors(station_id)
+        sensors = await self.get_sensors(
+            station_id
+        )
 
         for sensor in sensors:
             if sensor.code == code:
@@ -117,18 +149,29 @@ class OsmerApiClient:
         """Return sensor measurements."""
 
         data = await self._get(
-            f"/stations/{station_id}/sensors/{sensor_id}/measures?from={start}&to={end}"
+            f"/stations/{station_id}"
+            f"/sensors/{sensor_id}"
+            f"/measures"
+            f"?from={start}"
+            f"&to={end}"
         )
 
         if data.get("result") != "OK":
-            raise OsmerApiResponseError("Unexpected measures response")
+            raise OsmerApiResponseError(
+                "Unexpected measures response"
+            )
 
         measures = data.get("measures")
 
         if measures is None:
-            raise OsmerApiResponseError("Missing measures")
+            raise OsmerApiResponseError(
+                "Missing measures"
+            )
 
-        return [parse_measure(measure) for measure in measures]
+        return [
+            parse_measure(measure)
+            for measure in measures
+        ]
 
     async def get_latest_measure(
         self,
@@ -137,11 +180,13 @@ class OsmerApiClient:
     ) -> Measure | None:
         """Return latest sensor value."""
 
-        from datetime import datetime, timedelta, timezone
+        now = datetime.now(
+            timezone.utc
+        )
 
-        now = datetime.now(timezone.utc)
-
-        start = now - timedelta(hours=3)
+        start = now - timedelta(
+            hours=3
+        )
 
         measures = await self.get_measures(
             station_id=station_id,
