@@ -42,9 +42,7 @@ class OsmerApiClient:
                 return await response.json()
 
         except aiohttp.ClientError as err:
-            raise OsmerConnectionError(
-                f"Unable to connect to {url}"
-            ) from err
+            raise OsmerConnectionError(f"Unable to connect to {url}") from err
 
     async def get_stations(self) -> list[Station]:
         """Return all available weather stations."""
@@ -59,11 +57,6 @@ class OsmerApiClient:
         stations = data.get("stations")
 
         if stations is None:
-            raise OsmerApiResponseError(
-                "Response does not contain 'stations'"
-            )
+            raise OsmerApiResponseError("Response does not contain 'stations'")
 
-        return [
-            parse_station(station)
-            for station in stations
-        ]
+        return [parse_station(station) for station in stations]

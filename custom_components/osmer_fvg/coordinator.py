@@ -15,7 +15,6 @@ from .api.client import OsmerApiClient
 from .api.models import Station
 from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
 
-
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -35,9 +34,7 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[list[Station]]):
             hass,
             logger=_LOGGER,
             name=DOMAIN,
-            update_interval=timedelta(
-                seconds=DEFAULT_SCAN_INTERVAL
-            ),
+            update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
         )
 
     async def _async_update_data(self) -> list[Station]:
@@ -47,6 +44,4 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[list[Station]]):
             return await self.client.get_stations()
 
         except Exception as err:
-            raise UpdateFailed(
-                f"Unable to fetch OSMER data: {err}"
-            ) from err
+            raise UpdateFailed(f"Unable to fetch OSMER data: {err}") from err
