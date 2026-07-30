@@ -2,12 +2,12 @@
 
 
 class OsmerApiError(Exception):
-    """Base exception."""
+    """Base exception for the OSMER API."""
 
 
 class OsmerConnectionError(OsmerApiError):
-    """Unable to connect to OSMER."""
+    """Raised when the API cannot be reached."""
 
 
 class OsmerApiResponseError(OsmerApiError):
-    """Invalid API response."""
+    """Raised when the API returns an unexpected response."""
