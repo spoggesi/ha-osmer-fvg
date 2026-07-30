@@ -4,10 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import (
+    SensorEntity,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import (
+    AddEntitiesCallback,
+)
 
 from .const import MONITORED_SENSORS
 from .coordinator import OsmerDataUpdateCoordinator
@@ -24,19 +28,32 @@ async def async_setup_entry(
         hass.data["osmer_fvg"][entry.entry_id]
     )
 
-    entities = [
-        OsmerSensor(
-            coordinator,
-            code,
-        )
-        for code in coordinator.data.sensors
-    ]
 
-    async_add_entities(entities)
+    entities = []
 
 
-class OsmerSensor(SensorEntity):
-    """Representation of an OSMER measurement."""
+    for code in MONITORED_SENSORS:
+
+        if code in coordinator.data.sensors:
+
+            entities.append(
+                OsmerSensor(
+                    coordinator,
+                    code,
+                )
+            )
+
+
+    async_add_entities(
+        entities
+    )
+
+
+class OsmerSensor(
+    SensorEntity
+):
+    """Representation of an OSMER sensor."""
+
 
     _attr_has_entity_name = True
 
@@ -51,31 +68,58 @@ class OsmerSensor(SensorEntity):
         self.coordinator = coordinator
         self.sensor_code = sensor_code
 
-        config = MONITORED_SENSORS[sensor_code]
 
-        self._attr_name = config["name"]
+        sensor = coordinator.data.sensors[
+            sensor_code
+        ]
+
+
+        self._sensor = sensor
+
 
         self._attr_unique_id = (
-            f"osmer_fvg_"
-            f"{coordinator.station_id}_"
-            f"{sensor_code}"
+            f"osmer_{sensor.station_id}_{sensor.code}"
         )
 
 
-        self._attr_icon = (
-            "mdi:weather-partly-cloudy"
+        self._attr_name = (
+            MONITORED_SENSORS[
+                sensor_code
+            ]["name"]
         )
+
+
+        self._attr_native_unit_of_measurement = (
+            sensor.unit
+        )
+
+
+        device_class = (
+            MONITORED_SENSORS[
+                sensor_code
+            ].get(
+                "device_class"
+            )
+        )
+
+
+        if device_class:
+
+            self._attr_device_class = (
+                device_class
+            )
 
 
     @property
     def native_value(
         self,
     ) -> float | None:
-        """Return latest value."""
+        """Return current value."""
 
         measure = (
-            self.coordinator.data.measures
-            .get(self.sensor_code)
+            self.coordinator.data.measures.get(
+                self.sensor_code
+            )
         )
 
 
@@ -85,24 +129,6 @@ class OsmerSensor(SensorEntity):
 
         return measure.value
 
-
-    @property
-    def native_unit_of_measurement(
-        self,
-    ) -> str | None:
-        """Return unit."""
-
-        sensor = (
-            self.coordinator.data.sensors
-            .get(self.sensor_code)
-        )
-
-
-        if sensor is None:
-            return None
-
-
-        return sensor.unit
 
 
     @property
@@ -116,21 +142,44 @@ class OsmerSensor(SensorEntity):
         )
 
 
-        measure = (
-            self.coordinator.data.measures
-            .get(self.sensor_code)
-        )
-
-
         return {
             "station": station.name,
             "station_id": station.id,
             "latitude": station.latitude,
             "longitude": station.longitude,
             "altitude": station.altitude,
-            "last_update": (
-                measure.timestamp.isoformat()
-                if measure
-                else None
+            "sensor_code": self.sensor_code,
+            "sensor_name": self._sensor.name,
+        }
+
+
+
+    @property
+    def device_info(self):
+        """Return device information."""
+
+        station = (
+            self.coordinator.data.station
+        )
+
+
+        return {
+            "identifiers": {
+                (
+                    "osmer_fvg",
+                    str(station.id),
+                )
+            },
+            "name": (
+                f"OSMER {station.name}"
+            ),
+            "manufacturer": (
+                "Protezione Civile FVG"
+            ),
+            "model": (
+                "Weather Station"
+            ),
+            "sw_version": (
+                station.status
             ),
         }
