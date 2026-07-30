@@ -1,0 +1,13 @@
+{
+  "domain": "osmer_fvg",
+  "name": "OSMER FVG",
+  "codeowners": ["@spoggesi"],
+  "config_flow": true,
+  "documentation": "https://github.com/spoggesi/ha-osmer-fvg",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/spoggesi/ha-osmer-fvg/issues",
+  "loggers": [],
+  "requirements": [],
+  "version": "0.0.1"
+}
