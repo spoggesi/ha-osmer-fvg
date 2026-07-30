@@ -1,5 +1,5 @@
 {
-    "name": "HA OSMER FVG",
+    "name": "Home Assistant Integration Development",
 
     "image": "mcr.microsoft.com/devcontainers/python:3.13",
 
@@ -13,10 +13,11 @@
                 "ms-python.python",
                 "ms-python.vscode-pylance",
                 "charliermarsh.ruff",
-                "github.vscode-github-actions"
+                "github.vscode-github-actions",
+                "ms-azuretools.vscode-docker"
             ]
         }
     },
 
-    "postCreateCommand": "pip install -U pip"
+    "postCreateCommand": "python -m pip install --upgrade pip && pip install aiohttp pytest pytest-asyncio pytest-cov ruff homeassistant"
 }
