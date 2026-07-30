@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Coverage
+.coverage
+htmlcov/
+
+# Logs
+*.log
