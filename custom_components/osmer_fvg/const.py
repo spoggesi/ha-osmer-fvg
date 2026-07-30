@@ -4,4 +4,5 @@ DOMAIN = "osmer_fvg"
 
 DEFAULT_SCAN_INTERVAL = 300
 
-CONF_STATION = "station"
+CONF_STATION_ID = "station_id"
+CONF_STATION_NAME = "station_name"

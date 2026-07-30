@@ -2,10 +2,10 @@
   "config": {
     "step": {
       "user": {
-        "title": "OSMER FVG",
-        "description": "Configure OSMER FVG weather stations",
+        "title": "Seleziona stazione OSMER",
+        "description": "Scegli la stazione meteorologica da monitorare",
         "data": {
-          "name": "Integration name"
+          "station_id": "Stazione"
         }
       }
     }
