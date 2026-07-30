@@ -11,9 +11,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import (
-    DeviceInfo,
-)
+from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import (
     AddEntitiesCallback,
 )
@@ -31,19 +29,13 @@ async def async_setup_entry(
 ) -> None:
     """Set up OSMER sensors."""
 
-    coordinator: OsmerDataUpdateCoordinator = (
-        hass.data["osmer_fvg"][entry.entry_id]
-    )
-
+    coordinator: OsmerDataUpdateCoordinator = hass.data["osmer_fvg"][entry.entry_id]
 
     entities: list[SensorEntity] = []
 
-
     for code in coordinator.data.sensors:
-
         if code not in MONITORED_SENSORS:
             continue
-
 
         entities.append(
             OsmerSensor(
@@ -52,11 +44,7 @@ async def async_setup_entry(
             )
         )
 
-
-    async_add_entities(
-        entities
-    )
-
+    async_add_entities(entities)
 
 
 class OsmerSensor(
@@ -64,9 +52,7 @@ class OsmerSensor(
 ):
     """Representation of an OSMER sensor."""
 
-
     _attr_has_entity_name = True
-
 
     def __init__(
         self,
@@ -78,73 +64,41 @@ class OsmerSensor(
         self.coordinator = coordinator
         self.sensor_code = sensor_code
 
+        sensor = coordinator.data.sensors[sensor_code]
 
-        sensor = (
-            coordinator.data.sensors[sensor_code]
-        )
+        station = coordinator.data.station
 
+        self._attr_unique_id = f"osmer_{station.id}_{sensor.code}"
 
-        station = (
-            coordinator.data.station
-        )
+        self._attr_name = MONITORED_SENSORS[sensor.code]["name"]
 
+        self._attr_native_unit_of_measurement = sensor.unit
 
-        self._attr_unique_id = (
-            f"osmer_{station.id}_{sensor.code}"
-        )
+        self._attr_device_class = self._get_device_class(sensor.code)
 
+        self._attr_state_class = SensorStateClass.MEASUREMENT
 
-        self._attr_name = (
-            MONITORED_SENSORS[sensor.code]["name"]
-        )
+        self._attr_icon = "mdi:weather-partly-cloudy"
 
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return device information."""
 
-        self._attr_native_unit_of_measurement = (
-            sensor.unit
-        )
+        station = self.coordinator.data.station
 
-
-        self._attr_device_class = (
-            self._get_device_class(
-                sensor.code
-            )
-        )
-
-
-        self._attr_state_class = (
-            SensorStateClass.MEASUREMENT
-        )
-
-
-        self._attr_icon = (
-            "mdi:weather-partly-cloudy"
-        )
-
-
-        self._attr_device_info = DeviceInfo(
+        return DeviceInfo(
             identifiers={
                 (
                     "osmer_fvg",
                     str(station.id),
                 )
             },
-            name=station.name,
-            manufacturer=(
-                "Protezione Civile FVG"
-            ),
-            model=(
-                "Stazione meteorologica OSMER"
-            ),
-            sw_version="API",
-            configuration_url=(
-                "https://monitor.protezionecivile.fvg.it"
-            ),
-            suggested_area=(
-                station.name
-            ),
+            name=f"OSMER {station.name}",
+            manufacturer="OSMER FVG",
+            model="Weather Station",
+            configuration_url=("https://monitor.protezionecivile.fvg.it"),
+            sw_version="0.1.0",
         )
-
-
 
     @property
     def native_value(
@@ -152,20 +106,12 @@ class OsmerSensor(
     ) -> float | None:
         """Return current value."""
 
-        measure = (
-            self.coordinator.data.measures.get(
-                self.sensor_code
-            )
-        )
-
+        measure = self.coordinator.data.measures.get(self.sensor_code)
 
         if measure is None:
             return None
 
-
         return measure.value
-
-
 
     @property
     def extra_state_attributes(
@@ -173,68 +119,34 @@ class OsmerSensor(
     ) -> dict[str, Any]:
         """Return extra attributes."""
 
-        station = (
-            self.coordinator.data.station
-        )
+        station = self.coordinator.data.station
 
+        sensor = self.coordinator.data.sensors[self.sensor_code]
 
-        sensor = (
-            self.coordinator.data.sensors[
-                self.sensor_code
-            ]
-        )
-
-
-        measure = (
-            self.coordinator.data.measures.get(
-                self.sensor_code
-            )
-        )
-
+        measure = self.coordinator.data.measures.get(self.sensor_code)
 
         return {
             "station": station.name,
             "station_id": station.id,
-            "istat": station.istat,
             "sensor_code": sensor.code,
             "sensor_name": sensor.name,
             "latitude": station.latitude,
             "longitude": station.longitude,
             "altitude": station.altitude,
-            "last_update": (
-                measure.timestamp.isoformat()
-                if measure
-                else None
-            ),
+            "last_update": (measure.timestamp.isoformat() if measure else None),
         }
-
-
 
     @staticmethod
     def _get_device_class(
         code: str,
     ) -> SensorDeviceClass | None:
-        """Return HA device class."""
+        """Return Home Assistant device class."""
 
         mapping = {
-
-            "T": (
-                SensorDeviceClass.TEMPERATURE
-            ),
-
-            "U": (
-                SensorDeviceClass.HUMIDITY
-            ),
-
-            "RR": (
-                SensorDeviceClass.PRECIPITATION_INTENSITY
-            ),
-
-            "P": (
-                SensorDeviceClass.PRECIPITATION
-            ),
-
+            "T": SensorDeviceClass.TEMPERATURE,
+            "U": SensorDeviceClass.HUMIDITY,
+            "RR": SensorDeviceClass.PRECIPITATION_INTENSITY,
+            "P": SensorDeviceClass.PRECIPITATION,
         }
-
 
         return mapping.get(code)
