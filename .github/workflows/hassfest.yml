@@ -1,0 +1,21 @@
+name: Hassfest
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  hassfest:
+    name: Hassfest validation
+    runs-on: ubuntu-latest
+
+    container:
+      image: ghcr.io/home-assistant/home-assistant:stable
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run hassfest
+        run: |
+          python -m script.hassfest
