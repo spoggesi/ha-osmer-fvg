@@ -4,13 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.sensor import (
-    SensorEntity,
-)
+from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from .const import MONITORED_SENSORS
 from .coordinator import OsmerDataUpdateCoordinator
 
 
@@ -19,80 +18,119 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up OSMER sensors from config entry."""
+    """Set up OSMER sensors."""
 
     coordinator: OsmerDataUpdateCoordinator = (
         hass.data["osmer_fvg"][entry.entry_id]
     )
 
     entities = [
-        OsmerStationSensor(
+        OsmerSensor(
             coordinator,
-            station.id,
+            code,
         )
-        for station in coordinator.data
+        for code in coordinator.data.sensors
     ]
 
     async_add_entities(entities)
 
 
-class OsmerStationSensor(SensorEntity):
-    """Representation of an OSMER station."""
+class OsmerSensor(SensorEntity):
+    """Representation of an OSMER measurement."""
 
     _attr_has_entity_name = True
-    _attr_icon = "mdi:weather-partly-cloudy"
+
 
     def __init__(
         self,
         coordinator: OsmerDataUpdateCoordinator,
-        station_id: int,
+        sensor_code: str,
     ) -> None:
         """Initialize sensor."""
 
         self.coordinator = coordinator
-        self.station_id = station_id
+        self.sensor_code = sensor_code
+
+        config = MONITORED_SENSORS[sensor_code]
+
+        self._attr_name = config["name"]
 
         self._attr_unique_id = (
-            f"osmer_fvg_station_{station_id}"
+            f"osmer_fvg_"
+            f"{coordinator.station_id}_"
+            f"{sensor_code}"
         )
 
+
+        self._attr_icon = (
+            "mdi:weather-partly-cloudy"
+        )
+
+
     @property
-    def native_value(self) -> str | None:
-        """Return sensor value."""
+    def native_value(
+        self,
+    ) -> float | None:
+        """Return latest value."""
 
-        station = self._get_station()
+        measure = (
+            self.coordinator.data.measures
+            .get(self.sensor_code)
+        )
 
-        if station is None:
+
+        if measure is None:
             return None
 
-        return station.name
+
+        return measure.value
+
+
+    @property
+    def native_unit_of_measurement(
+        self,
+    ) -> str | None:
+        """Return unit."""
+
+        sensor = (
+            self.coordinator.data.sensors
+            .get(self.sensor_code)
+        )
+
+
+        if sensor is None:
+            return None
+
+
+        return sensor.unit
+
 
     @property
     def extra_state_attributes(
         self,
     ) -> dict[str, Any]:
-        """Return station attributes."""
+        """Return extra attributes."""
 
-        station = self._get_station()
+        station = (
+            self.coordinator.data.station
+        )
 
-        if station is None:
-            return {}
+
+        measure = (
+            self.coordinator.data.measures
+            .get(self.sensor_code)
+        )
+
 
         return {
+            "station": station.name,
+            "station_id": station.id,
             "latitude": station.latitude,
             "longitude": station.longitude,
             "altitude": station.altitude,
-            "status": station.status,
-        }
-
-    def _get_station(self):
-        """Return current station."""
-
-        return next(
-            (
-                station
-                for station in self.coordinator.data
-                if station.id == self.station_id
+            "last_update": (
+                measure.timestamp.isoformat()
+                if measure
+                else None
             ),
-            None,
-        )
+        }

@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
-from aiohttp import ClientSession
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import (
+    async_get_clientsession,
+)
 
 from .api.client import OsmerApiClient
 from .const import DOMAIN
-from .coordinator import OsmerDataUpdateCoordinator
+from .coordinator import (
+    OsmerDataUpdateCoordinator,
+)
 
 PLATFORMS: list[Platform] = [
     Platform.SENSOR,
@@ -20,45 +24,69 @@ async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
 ) -> bool:
-    """Set up OSMER FVG from a config entry."""
+    """Set up OSMER FVG."""
 
-    session = ClientSession()
+    session = async_get_clientsession(
+        hass
+    )
+
 
     client = OsmerApiClient(
-        session=session,
+        session
     )
+
+
+    station_id = entry.data["station_id"]
+
 
     coordinator = OsmerDataUpdateCoordinator(
         hass,
         client,
+        station_id,
     )
+
 
     await coordinator.async_config_entry_first_refresh()
 
-    hass.data.setdefault(DOMAIN, {})
 
-    hass.data[DOMAIN][entry.entry_id] = coordinator
+    hass.data.setdefault(
+        DOMAIN,
+        {},
+    )
+
+
+    hass.data[DOMAIN][entry.entry_id] = (
+        coordinator
+    )
+
 
     await hass.config_entries.async_forward_entry_setups(
         entry,
         PLATFORMS,
     )
 
+
     return True
+
 
 
 async def async_unload_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
 ) -> bool:
-    """Unload OSMER FVG config entry."""
+    """Unload OSMER entry."""
 
     unload_ok = await hass.config_entries.async_unload_platforms(
         entry,
         PLATFORMS,
     )
 
+
     if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id)
+
+        hass.data[DOMAIN].pop(
+            entry.entry_id
+        )
+
 
     return unload_ok

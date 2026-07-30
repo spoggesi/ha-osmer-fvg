@@ -38,9 +38,7 @@ class OsmerFVGConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         stations = await self._async_get_stations()
 
         if not stations:
-            return self.async_abort(
-                reason="cannot_connect"
-            )
+            return self.async_abort(reason="cannot_connect")
 
         self._stations = stations
 
@@ -69,10 +67,7 @@ class OsmerFVGConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return vol.Schema(
             {
                 vol.Required("station"): vol.In(
-                    {
-                        station.id: station.name
-                        for station in stations
-                    }
+                    {station.id: station.name for station in stations}
                 )
             }
         )

@@ -20,38 +20,56 @@ class Station:
 
     def __str__(self) -> str:
         """Return human readable representation."""
+
         return (
             f"{self.name} "
             f"(ID {self.id}) "
             f"{self.latitude:.5f}, "
             f"{self.longitude:.5f} "
-            f"{self.altitude:.1f}m"
+            f"{self.altitude}m"
         )
 
 
 @dataclass(frozen=True)
-class Observation:
-    """Weather observation."""
+class Sensor:
+    """Weather sensor information."""
 
+    id: int
     station_id: int
-    timestamp: datetime
 
-    temperature: float | None = None
-    humidity: float | None = None
-    pressure: float | None = None
+    code: str
+    name: str
 
-    wind_speed: float | None = None
-    wind_direction: float | None = None
+    decimals: int
+    unit: str
 
-    rain: float | None = None
+    status: str
+
+    @property
+    def device_class(self) -> str | None:
+        """Return Home Assistant device class."""
+
+        mapping = {
+            "T": "temperature",
+            "U": "humidity",
+            "P": "precipitation",
+            "RR": "precipitation",
+            "IDRO": "water",
+        }
+
+        return mapping.get(self.code)
 
 
 @dataclass(frozen=True)
-class Forecast:
-    """Weather forecast."""
+class Measure:
+    """Sensor measurement."""
 
     station_id: int
+    sensor_id: int
+
     timestamp: datetime
 
-    temperature: float | None = None
-    rain_probability: float | None = None
+    latitude: float
+    longitude: float
+
+    value: float | None

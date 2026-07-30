@@ -1,144 +1,69 @@
-"""OSMER FVG API discovery tool."""
-
-from __future__ import annotations
+"""OSMER API discovery script."""
 
 import asyncio
-import json
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import aiohttp
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-sys.path.insert(
-    0,
-    str(ROOT_DIR),
-)
+sys.path.insert(0, str(ROOT_DIR))
 
 
 from custom_components.osmer_fvg.api.client import OsmerApiClient
 
-TEST_ENDPOINTS = [
-    "/stations/{id}",
-    "/station/{id}",
-    "/observations/{id}",
-    "/observations?station={id}",
-    "/weather/{id}",
-    "/data/{id}",
-]
+STATION_ID = 209
+TEMPERATURE_SENSOR_ID = 2
 
 
 async def main() -> None:
     """Run API check."""
 
     print("=" * 70)
-    print("OSMER FVG API CHECK")
+    print("OSMER FVG API DISCOVERY")
     print("=" * 70)
 
     async with aiohttp.ClientSession() as session:
-
-        client = OsmerApiClient(
-            session
-        )
+        client = OsmerApiClient(session)
 
         stations = await client.get_stations()
 
-        print(
-            f"\nFound {len(stations)} stations\n"
-        )
+        station = next(s for s in stations if s.id == STATION_ID)
 
-        print("=" * 70)
-        print("FIRST 10 STATIONS")
-        print("=" * 70)
+        print("\nSTATION")
+        print("-" * 70)
+        print(station)
 
-        for station in stations[:10]:
+        sensors = await client.get_sensors(STATION_ID)
+
+        print("\nSENSORS")
+        print("-" * 70)
+
+        for sensor in sensors:
             print(
-                station
+                f"{sensor.id:3} | {sensor.code:12} | {sensor.name:30} | {sensor.unit}"
             )
 
-        station = stations[0]
+        end = datetime.now(timezone.utc)
 
-        print("\n")
-        print("=" * 70)
-        print("SELECTED STATION")
-        print("=" * 70)
+        start = end - timedelta(hours=3)
 
-        print(
-            station
+        print("\nTEMPERATURE LAST MEASURES")
+        print("-" * 70)
+
+        measures = await client.get_measures(
+            station_id=STATION_ID,
+            sensor_id=TEMPERATURE_SENSOR_ID,
+            start=start.isoformat(),
+            end=end.isoformat(),
         )
 
-        print("\n")
-        print("=" * 70)
-        print("RAW STATION OBJECT")
-        print("=" * 70)
-
-        print(
-            json.dumps(
-                station.__dict__,
-                indent=4,
-            )
-        )
-
-        print("\n")
-        print("=" * 70)
-        print("ENDPOINT DISCOVERY")
-        print("=" * 70)
-
-        for endpoint in TEST_ENDPOINTS:
-
-            endpoint_path = endpoint.format(
-                id=station.id
-            )
-
-            url = (
-                "https://monitor.protezionecivile.fvg.it/api"
-                + endpoint_path
-            )
-
+        for measure in measures[-10:]:
             print(
-                f"\nTesting: {endpoint_path}"
+                measure.timestamp,
+                measure.value,
             )
-
-            try:
-                async with session.get(
-                    url
-                ) as response:
-
-                    print(
-                        "Status:",
-                        response.status,
-                    )
-
-                    print(
-                        "Content-Type:",
-                        response.headers.get(
-                            "content-type"
-                        ),
-                    )
-
-                    if response.status == 200:
-
-                        try:
-                            data = await response.json()
-
-                            print(
-                                json.dumps(
-                                    data,
-                                    indent=4,
-                                )[:1000]
-                            )
-
-                        except aiohttp.ContentTypeError:
-                            print(
-                                await response.text()
-                            )
-
-            except aiohttp.ClientError as err:
-
-                print(
-                    "HTTP ERROR:",
-                    err,
-                )
 
 
 if __name__ == "__main__":
