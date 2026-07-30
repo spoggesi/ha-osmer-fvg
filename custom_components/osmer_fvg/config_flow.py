@@ -42,7 +42,11 @@ class OsmerFVGConfigFlow(
             station_id = user_input["station_id"]
 
             station = next(
-                (item for item in self._stations if item.id == station_id),
+                (
+                    item
+                    for item in self._stations
+                    if item.id == station_id
+                ),
                 None,
             )
 
@@ -111,13 +115,20 @@ class OsmerFVGConfigFlow(
     ) -> vol.Schema:
         """Create station selector."""
 
+        stations = sorted(
+            stations,
+            key=lambda station: station.name.casefold(),
+        )
+
         return vol.Schema(
             {
                 vol.Required(
                     "station_id",
                 ): vol.In(
                     {
-                        station.id: (f"{station.name} ({station.id})")
+                        station.id: (
+                            f"{station.name} ({station.id})"
+                        )
                         for station in stations
                     }
                 )
