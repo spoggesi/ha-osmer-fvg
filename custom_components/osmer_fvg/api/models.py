@@ -1,16 +1,18 @@
-"""Models for the OSMER API."""
+"""Models for OSMER FVG API."""
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(frozen=True)
 class Station:
-    """Weather station."""
+    """Weather station information."""
 
     id: int
     name: str
     istat: int
     latitude: float
     longitude: float
-    elevation: int
+    altitude: int
     status: str

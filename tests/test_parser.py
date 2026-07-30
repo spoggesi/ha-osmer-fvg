@@ -25,5 +25,5 @@ def test_parse_station() -> None:
     assert station.istat == 30032
     assert station.latitude == 46.084672
     assert station.longitude == 12.930306
-    assert station.elevation == 112
+    assert station.altitude == 112
     assert station.status == "N"
