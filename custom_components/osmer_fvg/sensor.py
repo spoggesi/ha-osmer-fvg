@@ -11,6 +11,9 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import (
+    DeviceInfo,
+)
 from homeassistant.helpers.entity_platform import (
     AddEntitiesCallback,
 )
@@ -118,6 +121,30 @@ class OsmerSensor(
         )
 
 
+        self._attr_device_info = DeviceInfo(
+            identifiers={
+                (
+                    "osmer_fvg",
+                    str(station.id),
+                )
+            },
+            name=station.name,
+            manufacturer=(
+                "Protezione Civile FVG"
+            ),
+            model=(
+                "Stazione meteorologica OSMER"
+            ),
+            sw_version="API",
+            configuration_url=(
+                "https://monitor.protezionecivile.fvg.it"
+            ),
+            suggested_area=(
+                station.name
+            ),
+        )
+
+
 
     @property
     def native_value(
@@ -158,20 +185,25 @@ class OsmerSensor(
         )
 
 
+        measure = (
+            self.coordinator.data.measures.get(
+                self.sensor_code
+            )
+        )
+
+
         return {
             "station": station.name,
             "station_id": station.id,
+            "istat": station.istat,
             "sensor_code": sensor.code,
             "sensor_name": sensor.name,
             "latitude": station.latitude,
             "longitude": station.longitude,
             "altitude": station.altitude,
             "last_update": (
-                self.coordinator.data.measures[
-                    self.sensor_code
-                ].timestamp.isoformat()
-                if self.sensor_code
-                in self.coordinator.data.measures
+                measure.timestamp.isoformat()
+                if measure
                 else None
             ),
         }
@@ -186,13 +218,21 @@ class OsmerSensor(
 
         mapping = {
 
-            "T": SensorDeviceClass.TEMPERATURE,
+            "T": (
+                SensorDeviceClass.TEMPERATURE
+            ),
 
-            "U": SensorDeviceClass.HUMIDITY,
+            "U": (
+                SensorDeviceClass.HUMIDITY
+            ),
 
-            "RR": SensorDeviceClass.PRECIPITATION_INTENSITY,
+            "RR": (
+                SensorDeviceClass.PRECIPITATION_INTENSITY
+            ),
 
-            "P": SensorDeviceClass.PRECIPITATION,
+            "P": (
+                SensorDeviceClass.PRECIPITATION
+            ),
 
         }
 
