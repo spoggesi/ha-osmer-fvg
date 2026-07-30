@@ -2,16 +2,21 @@
   "config": {
     "step": {
       "user": {
-        "title": "Configurazione OSMER FVG",
-        "description": "Seleziona la stazione meteorologica da monitorare",
+        "title": "Configura OSMER FVG",
+        "description": "Scegli la stazione meteorologica da aggiungere a Home Assistant.",
         "data": {
           "station_id": "Stazione"
         }
       }
     },
     "abort": {
-      "cannot_connect": "Impossibile collegarsi al servizio OSMER",
-      "invalid_station": "Stazione non valida"
+      "cannot_connect": "Non è stato possibile contattare OSMER FVG.",
+      "invalid_station": "La stazione selezionata non è valida.",
+      "already_configured": "Questa stazione è già stata configurata."
+    },
+    "error": {
+      "cannot_connect": "Errore durante la connessione.",
+      "unknown": "Errore non previsto."
     }
   }
 }

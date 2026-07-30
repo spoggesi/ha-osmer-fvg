@@ -2,11 +2,33 @@
   "config": {
     "step": {
       "user": {
-        "title": "Seleziona stazione OSMER",
-        "description": "Scegli la stazione meteorologica da monitorare",
+        "title": "Configura OSMER FVG",
+        "description": "Seleziona la stazione meteorologica OSMER FVG da monitorare.",
         "data": {
-          "station_id": "Stazione"
+          "station_id": "Stazione meteorologica"
         }
+      }
+    },
+    "abort": {
+      "cannot_connect": "Impossibile collegarsi al servizio OSMER FVG.",
+      "invalid_station": "La stazione selezionata non è disponibile.",
+      "already_configured": "Questa stazione è già configurata."
+    },
+    "error": {
+      "cannot_connect": "Errore di connessione al servizio OSMER FVG.",
+      "unknown": "Errore sconosciuto."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "temperature": {
+        "name": "Temperatura"
+      },
+      "humidity": {
+        "name": "Umidità"
+      },
+      "rain": {
+        "name": "Pioggia"
       }
     }
   }
