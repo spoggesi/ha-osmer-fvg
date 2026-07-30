@@ -1,0 +1,17 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configurazione OSMER FVG",
+        "description": "Seleziona la stazione meteorologica da monitorare",
+        "data": {
+          "station_id": "Stazione"
+        }
+      }
+    },
+    "abort": {
+      "cannot_connect": "Impossibile collegarsi al servizio OSMER",
+      "invalid_station": "Stazione non valida"
+    }
+  }
+}
