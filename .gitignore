@@ -23,3 +23,6 @@ htmlcov/
 
 # Logs
 *.log
+
+# Dev Container
+.devcontainer/devcontainer-lock.json
