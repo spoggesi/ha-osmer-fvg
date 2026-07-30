@@ -1,44 +1,17 @@
-"""Sensor platform for the OSMER FVG integration."""
+"""Sensor platform for OSMER FVG."""
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass
+from typing import Any
 
 from homeassistant.components.sensor import (
     SensorEntity,
-    SensorEntityDescription,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
-)
 
-from .const import DOMAIN
 from .coordinator import OsmerDataUpdateCoordinator
-
-
-@dataclass(frozen=True, kw_only=True)
-class OsmerSensorEntityDescription(
-    SensorEntityDescription,
-):
-    """Describe an OSMER sensor."""
-
-    value_fn: Callable[
-        [list],
-        object,
-    ]
-
-
-SENSOR_DESCRIPTIONS = (
-    OsmerSensorEntityDescription(
-        key="station_count",
-        name="Station count",
-        value_fn=lambda data: len(data),
-    ),
-)
 
 
 async def async_setup_entry(
@@ -46,44 +19,80 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up OSMER sensors."""
+    """Set up OSMER sensors from config entry."""
 
-    coordinator: OsmerDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
-
-    async_add_entities(
-        [
-            OsmerSensor(
-                coordinator,
-                description,
-            )
-            for description in SENSOR_DESCRIPTIONS
-        ]
+    coordinator: OsmerDataUpdateCoordinator = (
+        hass.data["osmer_fvg"][entry.entry_id]
     )
 
+    entities = [
+        OsmerStationSensor(
+            coordinator,
+            station.id,
+        )
+        for station in coordinator.data
+    ]
 
-class OsmerSensor(
-    CoordinatorEntity[OsmerDataUpdateCoordinator],
-    SensorEntity,
-):
-    """Representation of an OSMER sensor."""
+    async_add_entities(entities)
 
-    entity_description: OsmerSensorEntityDescription
+
+class OsmerStationSensor(SensorEntity):
+    """Representation of an OSMER station."""
+
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:weather-partly-cloudy"
 
     def __init__(
         self,
         coordinator: OsmerDataUpdateCoordinator,
-        description: OsmerSensorEntityDescription,
+        station_id: int,
     ) -> None:
         """Initialize sensor."""
 
-        super().__init__(coordinator)
+        self.coordinator = coordinator
+        self.station_id = station_id
 
-        self.entity_description = description
-
-        self._attr_unique_id = f"{DOMAIN}_{description.key}"
+        self._attr_unique_id = (
+            f"osmer_fvg_station_{station_id}"
+        )
 
     @property
-    def native_value(self) -> object:
+    def native_value(self) -> str | None:
         """Return sensor value."""
 
-        return self.entity_description.value_fn(self.coordinator.data)
+        station = self._get_station()
+
+        if station is None:
+            return None
+
+        return station.name
+
+    @property
+    def extra_state_attributes(
+        self,
+    ) -> dict[str, Any]:
+        """Return station attributes."""
+
+        station = self._get_station()
+
+        if station is None:
+            return {}
+
+        return {
+            "latitude": station.latitude,
+            "longitude": station.longitude,
+            "altitude": station.altitude,
+            "status": station.status,
+        }
+
+    def _get_station(self):
+        """Return current station."""
+
+        return next(
+            (
+                station
+                for station in self.coordinator.data
+                if station.id == self.station_id
+            ),
+            None,
+        )
