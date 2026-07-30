@@ -1,7 +1,7 @@
 {
   "domain": "osmer_fvg",
   "name": "OSMER FVG",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "documentation": "https://github.com/spoggesi/ha-osmer-fvg",
   "issue_tracker": "https://github.com/spoggesi/ha-osmer-fvg/issues",
   "codeowners": [
