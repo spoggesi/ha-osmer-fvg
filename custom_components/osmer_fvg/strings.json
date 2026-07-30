@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "OSMER FVG",
+        "description": "Configure OSMER FVG weather stations",
+        "data": {
+          "name": "Integration name"
+        }
+      }
+    }
+  }
+}
