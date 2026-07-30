@@ -33,7 +33,6 @@ async def test_sensor_value(
         status="N",
     )
 
-
     sensor = Sensor(
         id=2,
         station_id=209,
@@ -44,18 +43,14 @@ async def test_sensor_value(
         status="O",
     )
 
-
     measure = Measure(
         station_id=209,
         sensor_id=2,
-        timestamp=datetime.now(
-            timezone.utc
-        ),
+        timestamp=datetime.now(timezone.utc),
         latitude=45.874009,
         longitude=12.713078,
         value=35.2,
     )
-
 
     coordinator = MagicMock()
 
@@ -69,19 +64,13 @@ async def test_sensor_value(
         },
     )
 
-
     entity = OsmerSensor(
         coordinator,
         "T",
     )
 
-
     assert entity.native_value == 35.2
 
-    assert entity.unique_id == (
-        "osmer_209_T"
-    )
+    assert entity.unique_id == ("osmer_209_T")
 
-    assert entity.extra_state_attributes[
-        "station"
-    ] == "Zuiano"
+    assert entity.extra_state_attributes["station"] == "Zuiano"

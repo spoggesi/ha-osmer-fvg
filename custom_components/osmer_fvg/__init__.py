@@ -24,13 +24,9 @@ async def async_setup_entry(
 ) -> bool:
     """Set up OSMER FVG."""
 
-    session = async_get_clientsession(
-        hass
-    )
+    session = async_get_clientsession(hass)
 
-    client = OsmerApiClient(
-        session
-    )
+    client = OsmerApiClient(session)
 
     coordinator = OsmerDataUpdateCoordinator(
         hass,
@@ -67,8 +63,6 @@ async def async_unload_entry(
     )
 
     if unload_ok:
-        hass.data[DOMAIN].pop(
-            entry.entry_id
-        )
+        hass.data[DOMAIN].pop(entry.entry_id)
 
     return unload_ok

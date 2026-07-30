@@ -29,12 +29,9 @@ async def main() -> None:
     print("=" * 70)
 
     async with aiohttp.ClientSession() as session:
-
         client = OsmerApiClient(session)
 
-        sensors = await client.get_sensors(
-            STATION_ID
-        )
+        sensors = await client.get_sensors(STATION_ID)
 
         print()
         print("AVAILABLE SENSORS")
@@ -42,10 +39,7 @@ async def main() -> None:
 
         for sensor in sensors:
             print(
-                f"{sensor.id:3} | "
-                f"{sensor.code:12} | "
-                f"{sensor.name:35} | "
-                f"{sensor.unit}"
+                f"{sensor.id:3} | {sensor.code:12} | {sensor.name:35} | {sensor.unit}"
             )
 
         print()
@@ -53,16 +47,11 @@ async def main() -> None:
         print("LATEST VALUES")
         print("=" * 70)
 
-        now = datetime.now(
-            timezone.utc
-        )
+        now = datetime.now(timezone.utc)
 
-        start = now - timedelta(
-            hours=3
-        )
+        start = now - timedelta(hours=3)
 
         for sensor in sensors:
-
             try:
                 measures = await client.get_measures(
                     station_id=STATION_ID,
@@ -72,9 +61,7 @@ async def main() -> None:
                 )
 
                 if not measures:
-                    print(
-                        f"{sensor.code:12} -> NO DATA"
-                    )
+                    print(f"{sensor.code:12} -> NO DATA")
                     continue
 
                 latest = measures[-1]
@@ -90,10 +77,7 @@ async def main() -> None:
                 OsmerConnectionError,
                 aiohttp.ClientError,
             ) as err:
-
-                print(
-                    f"{sensor.code:12} -> ERROR {err}"
-                )
+                print(f"{sensor.code:12} -> ERROR {err}")
 
 
 if __name__ == "__main__":

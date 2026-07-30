@@ -32,7 +32,6 @@ class OsmerFVGConfigFlow(
 
         self._stations: list[Station] = []
 
-
     async def async_step_user(
         self,
         user_input: dict[str, Any] | None = None,
@@ -40,15 +39,10 @@ class OsmerFVGConfigFlow(
         """Handle user setup."""
 
         if user_input is not None:
-
             station_id = user_input["station_id"]
 
             station = next(
-                (
-                    item
-                    for item in self._stations
-                    if item.id == station_id
-                ),
+                (item for item in self._stations if item.id == station_id),
                 None,
             )
 
@@ -57,13 +51,11 @@ class OsmerFVGConfigFlow(
                     reason="invalid_station",
                 )
 
-
             await self.async_set_unique_id(
                 f"osmer_station_{station.id}",
             )
 
             self._abort_if_unique_id_configured()
-
 
             return self.async_create_entry(
                 title=f"OSMER {station.name}",
@@ -73,30 +65,23 @@ class OsmerFVGConfigFlow(
                 },
             )
 
-
         try:
-
             stations = await self._async_get_stations()
 
         except (
             OsmerConnectionError,
             OsmerApiResponseError,
         ):
-
             return self.async_abort(
                 reason="cannot_connect",
             )
 
-
         if not stations:
-
             return self.async_abort(
                 reason="no_stations",
             )
 
-
         self._stations = stations
-
 
         return self.async_show_form(
             step_id="user",
@@ -104,7 +89,6 @@ class OsmerFVGConfigFlow(
                 stations,
             ),
         )
-
 
     async def _async_get_stations(
         self,
@@ -121,7 +105,6 @@ class OsmerFVGConfigFlow(
 
         return await client.get_stations()
 
-
     @staticmethod
     def _get_schema(
         stations: list[Station],
@@ -134,10 +117,7 @@ class OsmerFVGConfigFlow(
                     "station_id",
                 ): vol.In(
                     {
-                        station.id: (
-                            f"{station.name} "
-                            f"({station.id})"
-                        )
+                        station.id: (f"{station.name} ({station.id})")
                         for station in stations
                     }
                 )

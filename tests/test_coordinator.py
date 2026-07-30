@@ -21,7 +21,6 @@ async def test_coordinator_update(
 
     client = MagicMock()
 
-
     client.get_station = AsyncMock(
         return_value=Station(
             id=51,
@@ -33,7 +32,6 @@ async def test_coordinator_update(
             status="N",
         )
     )
-
 
     client.get_sensors = AsyncMock(
         return_value=[
@@ -49,7 +47,6 @@ async def test_coordinator_update(
         ]
     )
 
-
     client.get_measures = AsyncMock(
         return_value=[
             Measure(
@@ -63,26 +60,18 @@ async def test_coordinator_update(
         ]
     )
 
-
     coordinator = OsmerDataUpdateCoordinator(
         hass,
         client,
         station_id=51,
     )
 
-
     await coordinator.async_refresh()
-
 
     assert coordinator.data is not None
 
-    assert coordinator.data.station.name == (
-        "Dignano"
-    )
+    assert coordinator.data.station.name == ("Dignano")
 
     assert "T" in coordinator.data.sensors
 
-    assert (
-        coordinator.data.measures["T"].value
-        == 25.5
-    )
+    assert coordinator.data.measures["T"].value == 25.5

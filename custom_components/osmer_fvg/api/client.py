@@ -141,9 +141,7 @@ class OsmerApiClient:
 
         now = datetime.now(timezone.utc)
 
-        start = now - timedelta(
-            hours=3
-        )
+        start = now - timedelta(hours=3)
 
         measures = await self.get_measures(
             station_id=station_id,
