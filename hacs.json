@@ -2,10 +2,5 @@
   "name": "OSMER FVG",
   "content_in_root": false,
   "homeassistant": "2024.1.0",
-  "render_readme": true,
-  "domains": [
-    "sensor"
-  ],
-  "iot_class": "cloud_polling",
-  "filename": "custom_components/osmer_fvg/manifest.json"
+  "render_readme": true
 }
