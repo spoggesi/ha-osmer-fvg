@@ -51,10 +51,14 @@ class OsmerFvgConfigFlow(
         self.flow_context = FlowContext()
 
         self.loader: FlowLoader | None = None
+
         self.service: FlowService | None = None
 
 
-    async def _async_init_services(self) -> None:
+
+    async def _async_init_services(
+        self,
+    ) -> None:
         """Initialize services."""
 
         if self.loader is None:
@@ -63,11 +67,16 @@ class OsmerFvgConfigFlow(
                 self.hass,
             )
 
+
             self.service = FlowService(
                 self.hass,
                 self.flow_context,
                 self.loader,
             )
+
+
+            await self.service.async_init_cache()
+
 
 
     async def async_step_user(
@@ -78,11 +87,13 @@ class OsmerFvgConfigFlow(
 
         await self._async_init_services()
 
+
         if self.service is None:
 
             return self.async_abort(
                 reason="cannot_connect",
             )
+
 
 
         try:
@@ -91,13 +102,16 @@ class OsmerFvgConfigFlow(
 
                 stations = await self.service.load_stations()
 
+
                 if not stations:
 
                     return self.async_abort(
                         reason="invalid_station",
                     )
 
+
                 await self.service.preload()
+
 
 
         except (
@@ -110,9 +124,11 @@ class OsmerFvgConfigFlow(
                 err,
             )
 
+
             return self.async_abort(
                 reason="cannot_connect",
             )
+
 
 
         if user_input is not None:
@@ -132,6 +148,7 @@ class OsmerFvgConfigFlow(
                 return await self.async_step_address()
 
 
+
         return self.async_show_form(
             step_id="user",
             data_schema=build_selection_method_selector(),
@@ -145,6 +162,7 @@ class OsmerFvgConfigFlow(
     ) -> ConfigFlowResult:
         """Handle station selection."""
 
+
         if self.service is None:
 
             return self.async_abort(
@@ -152,7 +170,9 @@ class OsmerFvgConfigFlow(
             )
 
 
+
         if user_input is not None:
+
 
             if user_input.get(
                 "action",
@@ -161,14 +181,17 @@ class OsmerFvgConfigFlow(
                 return await self.async_step_user()
 
 
+
             station_id = int(
                 user_input["station"],
             )
 
 
+
             station = await self.service.load_station(
                 station_id,
             )
+
 
 
             if station is None:
@@ -178,6 +201,7 @@ class OsmerFvgConfigFlow(
                 )
 
 
+
             await self.async_set_unique_id(
                 str(
                     station.id,
@@ -185,10 +209,13 @@ class OsmerFvgConfigFlow(
             )
 
 
+
             self._abort_if_unique_id_configured()
 
 
+
             self.flow_context.station = station
+
 
 
             return await self.async_step_sensors()
@@ -201,6 +228,7 @@ class OsmerFvgConfigFlow(
         )
 
 
+
         schema = schema.extend(
             {
                 vol.Optional(
@@ -208,6 +236,7 @@ class OsmerFvgConfigFlow(
                 ): build_back_selector(),
             }
         )
+
 
 
         return self.async_show_form(
@@ -229,6 +258,7 @@ class OsmerFvgConfigFlow(
             return self.async_abort(
                 reason="cannot_connect",
             )
+
 
 
         if user_input is not None:
@@ -260,9 +290,11 @@ class OsmerFvgConfigFlow(
                 )
 
 
+
             result = await self.service.search_address(
                 address,
             )
+
 
 
             if result is None:
@@ -276,11 +308,13 @@ class OsmerFvgConfigFlow(
                 )
 
 
+
             self.flow_context.nearest = (
                 self.service.nearest_stations(
                     limit=5,
                 )
             )
+
 
 
             return await self.async_step_nearest()
@@ -290,6 +324,7 @@ class OsmerFvgConfigFlow(
         schema = build_address_selector()
 
 
+
         schema = schema.extend(
             {
                 vol.Optional(
@@ -297,6 +332,7 @@ class OsmerFvgConfigFlow(
                 ): build_back_selector(),
             }
         )
+
 
 
         return self.async_show_form(
@@ -312,12 +348,12 @@ class OsmerFvgConfigFlow(
     ) -> ConfigFlowResult:
         """Handle nearest stations."""
 
-
         if self.service is None:
 
             return self.async_abort(
                 reason="cannot_connect",
             )
+
 
 
         if user_input is not None:
@@ -336,9 +372,11 @@ class OsmerFvgConfigFlow(
             )
 
 
+
             station = await self.service.load_station(
                 station_id,
             )
+
 
 
             if station is None:
@@ -348,6 +386,7 @@ class OsmerFvgConfigFlow(
                 )
 
 
+
             await self.async_set_unique_id(
                 str(
                     station.id,
@@ -355,10 +394,13 @@ class OsmerFvgConfigFlow(
             )
 
 
+
             self._abort_if_unique_id_configured()
 
 
+
             self.flow_context.station = station
+
 
 
             return await self.async_step_sensors()
@@ -373,6 +415,7 @@ class OsmerFvgConfigFlow(
         )
 
 
+
         schema = schema.extend(
             {
                 vol.Optional(
@@ -380,6 +423,7 @@ class OsmerFvgConfigFlow(
                 ): build_back_selector(),
             }
         )
+
 
 
         return self.async_show_form(
@@ -403,6 +447,7 @@ class OsmerFvgConfigFlow(
             )
 
 
+
         if self.service is None:
 
             return self.async_abort(
@@ -410,9 +455,11 @@ class OsmerFvgConfigFlow(
             )
 
 
+
         sensors = await self.service.load_sensors(
             self.flow_context.station,
         )
+
 
 
         if user_input is not None:
@@ -432,6 +479,7 @@ class OsmerFvgConfigFlow(
             )
 
 
+
             if not enabled:
 
                 return self.async_abort(
@@ -439,7 +487,9 @@ class OsmerFvgConfigFlow(
                 )
 
 
+
             self.flow_context.enabled_sensors = enabled
+
 
 
             return await self.async_step_confirm()
@@ -451,6 +501,7 @@ class OsmerFvgConfigFlow(
         )
 
 
+
         schema = schema.extend(
             {
                 vol.Optional(
@@ -458,6 +509,7 @@ class OsmerFvgConfigFlow(
                 ): build_back_selector(),
             }
         )
+
 
 
         return self.async_show_form(
@@ -477,11 +529,13 @@ class OsmerFvgConfigFlow(
         station = self.flow_context.station
 
 
+
         if station is None:
 
             return self.async_abort(
                 reason="missing_station",
             )
+
 
 
         selected_sensors = [
@@ -523,6 +577,7 @@ class OsmerFvgConfigFlow(
                 ): build_back_selector(),
             }
         )
+
 
 
         return self.async_show_form(

@@ -5,9 +5,12 @@ from unittest.mock import AsyncMock, patch
 from homeassistant import config_entries
 
 from custom_components.osmer_fvg.const import DOMAIN
+from custom_components.osmer_fvg.flow.service import FlowService
 
 
-async def test_user_flow(hass):
+async def test_user_flow(
+    hass,
+):
     """Test initial config flow step."""
 
     station = type(
@@ -22,16 +25,19 @@ async def test_user_flow(hass):
         },
     )()
 
+
     with (
-        patch(
-            "custom_components.osmer_fvg.flow.service.FlowService.load_stations",
+        patch.object(
+            FlowService,
+            "load_stations",
             new_callable=AsyncMock,
             return_value=[
                 station,
             ],
         ),
-        patch(
-            "custom_components.osmer_fvg.flow.service.FlowService.preload",
+        patch.object(
+            FlowService,
+            "preload",
             new_callable=AsyncMock,
         ),
         patch(
@@ -40,6 +46,7 @@ async def test_user_flow(hass):
             return_value=[],
         ),
     ):
+
         result = await hass.config_entries.flow.async_init(
             DOMAIN,
             context={
@@ -47,5 +54,7 @@ async def test_user_flow(hass):
             },
         )
 
+
     assert result["type"] == "form"
+
     assert result["step_id"] == "user"
