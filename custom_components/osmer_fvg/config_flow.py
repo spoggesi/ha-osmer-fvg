@@ -78,7 +78,6 @@ class OsmerFvgConfigFlow(
 
         await self._async_init_services()
 
-
         if self.service is None:
 
             return self.async_abort(
@@ -92,13 +91,11 @@ class OsmerFvgConfigFlow(
 
                 stations = await self.service.load_stations()
 
-
                 if not stations:
 
                     return self.async_abort(
                         reason="invalid_station",
                     )
-
 
                 await self.service.preload()
 
@@ -135,7 +132,6 @@ class OsmerFvgConfigFlow(
                 return await self.async_step_address()
 
 
-
         return self.async_show_form(
             step_id="user",
             data_schema=build_selection_method_selector(),
@@ -158,13 +154,11 @@ class OsmerFvgConfigFlow(
 
         if user_input is not None:
 
-
             if user_input.get(
                 "action",
             ) == BACK_OPTION:
 
                 return await self.async_step_user()
-
 
 
             station_id = int(
@@ -229,6 +223,7 @@ class OsmerFvgConfigFlow(
     ) -> ConfigFlowResult:
         """Handle address search."""
 
+
         if self.service is None:
 
             return self.async_abort(
@@ -265,7 +260,6 @@ class OsmerFvgConfigFlow(
                 )
 
 
-
             result = await self.service.search_address(
                 address,
             )
@@ -280,7 +274,6 @@ class OsmerFvgConfigFlow(
                         "base": "address_not_found",
                     },
                 )
-
 
 
             self.flow_context.nearest = (
@@ -318,6 +311,7 @@ class OsmerFvgConfigFlow(
         user_input: dict[str, Any] | None = None,
     ) -> ConfigFlowResult:
         """Handle nearest stations."""
+
 
         if self.service is None:
 
@@ -401,6 +395,7 @@ class OsmerFvgConfigFlow(
     ) -> ConfigFlowResult:
         """Handle sensor selection."""
 
+
         if self.flow_context.station is None:
 
             return self.async_abort(
@@ -477,6 +472,7 @@ class OsmerFvgConfigFlow(
         user_input: dict[str, Any] | None = None,
     ) -> ConfigFlowResult:
         """Confirm configuration."""
+
 
         station = self.flow_context.station
 

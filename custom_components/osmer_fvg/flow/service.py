@@ -10,9 +10,7 @@ from homeassistant.helpers.aiohttp_client import (
 from ..api.client import OsmerApiClient
 from ..api.models import Sensor, Station
 from ..helpers.distance import distance_km
-from ..helpers.geocoder import (
-    NominatimGeocoder,
-)
+from ..helpers.geocoder import NominatimGeocoder
 from .context import FlowContext
 from .loader import FlowLoader
 
@@ -29,7 +27,6 @@ class FlowService:
         """Initialize."""
 
         self._context = context
-
         self._loader = loader
 
         self._geocoder = NominatimGeocoder(
@@ -37,6 +34,7 @@ class FlowService:
                 hass,
             )
         )
+
 
     @property
     def client(
@@ -46,10 +44,11 @@ class FlowService:
 
         return self._loader.client
 
+
     async def load_stations(
         self,
     ) -> list[Station]:
-        """Load all stations."""
+        """Load stations."""
 
         stations = await self._loader.get_stations()
 
@@ -57,11 +56,12 @@ class FlowService:
 
         return stations
 
+
     async def load_station(
         self,
         station_id: int,
     ) -> Station | None:
-        """Return station by id."""
+        """Load single station."""
 
         station = await self._loader.get_station(
             station_id,
@@ -71,32 +71,42 @@ class FlowService:
 
         return station
 
+
     async def load_sensors(
         self,
         station: Station,
     ) -> list[Sensor]:
-        """Load station sensors."""
+        """Load sensors for station."""
 
-        sensors = await self._loader.get_sensors(
-            station,
-        )
+        if station.id in self._context.sensor_cache:
+
+            sensors = self._context.sensor_cache[
+                station.id
+            ]
+
+        else:
+
+            sensors = await self._loader.get_sensors(
+                station,
+            )
+
+            self._context.sensor_cache[
+                station.id
+            ] = sensors
+
 
         self._context.station = station
 
         self._context.sensors = sensors
 
-        self._context.enabled_sensors = [
-            sensor.code
-            for sensor in sensors
-        ]
-
         return sensors
+
 
     async def search_address(
         self,
         address: str,
     ) -> tuple[float, float] | None:
-        """Search an address."""
+        """Search address."""
 
         result = await self._geocoder.geocode(
             address,
@@ -105,13 +115,17 @@ class FlowService:
         if result is None:
             return None
 
+
         latitude, longitude = result
+
 
         self._context.address = address
         self._context.latitude = latitude
         self._context.longitude = longitude
 
+
         return result
+
 
     def nearest_stations(
         self,
@@ -125,6 +139,7 @@ class FlowService:
         ):
             return []
 
+
         stations = sorted(
             self._context.stations,
             key=lambda station: distance_km(
@@ -135,15 +150,29 @@ class FlowService:
             ),
         )
 
+
         stations = stations[:limit]
+
 
         self._context.nearest = stations
 
+
         return stations
 
-    async def preload(self) -> None:
-        """Preload sensors."""
 
-        await self._loader.preload(
-            self._context.stations,
-        )
+    async def preload(
+        self,
+    ) -> None:
+        """Preload station sensors."""
+
+        for station in self._context.stations:
+
+            if station.id not in self._context.sensor_cache:
+
+                sensors = await self._loader.get_sensors(
+                    station,
+                )
+
+                self._context.sensor_cache[
+                    station.id
+                ] = sensors

@@ -10,35 +10,42 @@
       },
       "station": {
         "title": "Selezione stazione",
-        "description": "Seleziona una stazione meteorologica OSMER FVG.",
+        "description": "Seleziona una stazione meteorologica OSMER FVG.\n\nLe icone indicano i sensori disponibili:\n🌡 Temperatura  💧 Umidità  🌧 Precipitazioni  💨 Vento  🔵 Pressione",
         "data": {
-          "station": "Stazione"
+          "station": "Stazione",
+          "action": "⬅️ Indietro"
         }
       },
       "address": {
         "title": "Ricerca tramite indirizzo",
-        "description": "Inserisci un indirizzo per trovare le stazioni più vicine.",
+        "description": "Inserisci un indirizzo per trovare le stazioni meteorologiche più vicine.",
         "data": {
-          "address": "Indirizzo"
+          "address": "Indirizzo",
+          "action": "⬅️ Indietro"
         }
       },
       "nearest": {
         "title": "Stazioni vicine",
-        "description": "Sono state trovate queste stazioni vicino all'indirizzo indicato.",
+        "description": "Sono state trovate queste stazioni vicino all'indirizzo indicato.\n\nLegenda sensori:\n🌡 Temperatura\n💧 Umidità\n🌧 Precipitazioni\n💨 Vento\n🔵 Pressione\n📊 Altri sensori",
         "data": {
-          "station": "Stazione"
+          "station": "Stazione",
+          "action": "⬅️ Indietro"
         }
       },
       "sensors": {
         "title": "Selezione sensori",
         "description": "Seleziona quali sensori vuoi creare per questa stazione.",
         "data": {
-          "enabled_sensors": "Sensori disponibili"
+          "enabled_sensors": "Sensori disponibili",
+          "action": "⬅️ Indietro"
         }
       },
       "confirm": {
         "title": "Conferma configurazione",
-        "description": "Controlla i dati prima di completare la configurazione."
+        "description": "Controlla i dati prima di completare la configurazione.",
+        "data": {
+          "action": "⬅️ Indietro"
+        }
       }
     },
     "error": {

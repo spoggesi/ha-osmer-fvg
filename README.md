@@ -3,93 +3,177 @@
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Integration-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 ![Version](https://img.shields.io/github/v/release/spoggesi/ha-osmer-fvg)
+![License](https://img.shields.io/github/license/spoggesi/ha-osmer-fvg)
 
 <p align="center">
-  <img src="custom_components/osmer_fvg/logo.png" width="200">
+  <img src="logo.png" width="300">
 </p>
 
-Integrazione custom per **Home Assistant** che permette di monitorare le stazioni meteorologiche **OSMER FVG**  
-(**Osservatorio Meteorologico Regionale del Friuli Venezia Giulia**).
+## Descrizione
 
-L'integrazione utilizza le API pubbliche della Protezione Civile FVG e non richiede account o configurazioni esterne.
+**OSMER FVG** è un'integrazione custom per **Home Assistant** che permette di monitorare le stazioni meteorologiche dell'
+
+**OSMER - Osservatorio Meteorologico Regionale del Friuli Venezia Giulia**
+
+integrando i dati pubblici forniti dalla **Protezione Civile Friuli Venezia Giulia**.
+
+L'integrazione non richiede account, API key o configurazioni esterne.
 
 ---
 
-## Funzionalità
+# Funzionalità
 
-Attualmente supporta:
+## Selezione della stazione
+
+L'integrazione permette di configurare una stazione meteorologica tramite:
+
+- 📡 Selezione diretta dall'elenco delle stazioni disponibili
+- 📍 Ricerca tramite indirizzo
+- 📏 Individuazione automatica delle stazioni più vicine
+
+Durante la configurazione vengono mostrati:
+
+- nome della stazione
+- distanza dall'indirizzo selezionato
+- sensori disponibili
+
+---
+
+## Sensori supportati
+
+I sensori vengono creati automaticamente in base alle informazioni fornite dalla stazione OSMER selezionata.
+
+Sensori attualmente supportati:
 
 - 🌡️ Temperatura aria
 - 💧 Umidità relativa
 - 🌧️ Precipitazioni
 - 🌊 Livello idrometrico
-- 📍 Informazioni della stazione meteorologica
-- 🔄 Aggiornamento automatico tramite API OSMER
-- 🩺 Diagnostica Home Assistant
+- 📊 Altri parametri disponibili dalle API OSMER
+
+Durante la configurazione è possibile scegliere quali sensori creare.
 
 ---
 
 # Installazione
 
-## Tramite HACS (consigliato)
+## Installazione tramite HACS (consigliata)
 
-1. Aprire Home Assistant
-2. Andare in: HACS → integrazioni
-3. Menu in alto a destra: 
-4. Inserire: https://github.com/spoggesi/ha-osmer-fvg 
-5. Installare **OSMER FVG**
-6. Riavviare Home Assistant
-
-## Installazione manuale
-
-1. Copiare la cartella: custom_components/osmer_fvg, all'interno della cartella: config/custom_components/
-2. Riavviare Home Assistant.
-
-## Configurazione
-
-Dopo il riavvio:
-Impostazioni
-→ Dispositivi e servizi
-→ Aggiungi integrazione
-→ OSMER FVG
-
-Selezionare la stazione meteorologica desiderata.
+1. Aprire **Home Assistant**
+2. Andare su **HACS → Integrazioni**
+3. Cercare **OSMER FVG**
+4. Installare l'integrazione
+5. Riavviare Home Assistant
 
 ---
 
-# Sensori disponibili
+## Installazione manuale
 
-Ogni stazione meteorologica crea automaticamente i sensori disponibili.
+1. Scaricare il repository:
+
+https://github.com/spoggesi/ha-osmer-fvg
+
+2. Copiare la cartella `custom_components/osmer_fvg` nella directory `config/custom_components/`.
+
+3. Riavviare Home Assistant.
+
+---
+
+# Configurazione
+
+Dopo il riavvio:
+
+**Impostazioni → Dispositivi e servizi → Aggiungi integrazione → OSMER FVG**
+
+La configurazione guidata permette di scegliere il metodo preferito.
+
+---
+
+# Selezione stazione
+
+## Selezione diretta
+
+È possibile scegliere direttamente una stazione dall'elenco disponibile.
 
 Esempio:
 
-## OSMER Zuiano
+- 🌡️ 💧 🌧️ Pordenone
+- 🌡️ 💧 Udine
+- 🌧️ Tarvisio
+
+Le icone indicano i sensori disponibili nella stazione.
+
+---
+
+## Ricerca tramite indirizzo
+
+Inserendo un indirizzo come:
+
+`Via Roma 1, Pordenone`
+
+l'integrazione calcola automaticamente le stazioni meteorologiche più vicine.
+
+Vengono mostrati:
+
+- nome della stazione
+- distanza stimata
+- sensori disponibili
+
+---
+
+# Sensori creati
+
+Ogni stazione configurata crea un dispositivo Home Assistant contenente i sensori disponibili.
+
+Esempio:
+
+## OSMER Pordenone
 
 | Sensore | Descrizione |
 |---|---|
-| Temperatura | Temperatura aria |
+| Temperatura | Temperatura dell'aria |
 | Umidità | Umidità relativa |
 | Pioggia | Precipitazione |
-| Precipitazione 24 ore | Accumulo ultime 24 ore |
+| Precipitazione 24h | Accumulo ultime 24 ore |
 | Livello idrometrico | Altezza livello acqua |
 
 ---
 
-# Dati e API
+# Aggiornamento dati
 
-I dati sono forniti dal servizio pubblico:
+I dati vengono aggiornati automaticamente tramite polling delle API pubbliche OSMER.
+
+Non sono necessari:
+
+- ❌ Account utente
+- ❌ API key
+- ❌ Configurazioni lato server
+
+È sufficiente una connessione internet attiva.
+
+---
+
+# Origine dati
+
+I dati provengono dal servizio pubblico:
 
 **OSMER FVG - Protezione Civile Friuli Venezia Giulia**
 
 https://monitor.protezionecivile.fvg.it
 
-L'integrazione effettua interrogazioni periodiche tramite API pubbliche.
+---
 
-Non sono necessarie:
+# Diagnostica
 
-- API key
-- Account utente
-- Configurazioni lato server
+L'integrazione supporta la diagnostica nativa di Home Assistant.
+
+Sono disponibili informazioni su:
+
+- stazione configurata
+- coordinate
+- sensori disponibili
+- ultimo aggiornamento dati
+- stato comunicazione API
 
 ---
 
@@ -103,20 +187,7 @@ Non sono necessarie:
 
 # Screenshot
 
-*(Screenshot disponibili nelle prossime versioni)*
-
----
-
-# Diagnostica
-
-L'integrazione supporta la funzione diagnostica nativa di Home Assistant.
-
-È possibile recuperare informazioni su:
-
-- stazione configurata
-- sensori disponibili
-- ultimi valori ricevuti
-- timestamp aggiornamento dati
+Gli screenshot dell'integrazione saranno aggiunti nelle prossime versioni.
 
 ---
 
@@ -128,6 +199,17 @@ https://github.com/spoggesi/ha-osmer-fvg/issues
 
 ---
 
+# Contributi
+
+Sono benvenuti:
+
+- segnalazioni di problemi
+- nuove funzionalità
+- miglioramenti del codice
+- supporto per nuovi sensori
+
+---
+
 # Licenza
 
-Questo progetto è rilasciato sotto licenza MIT.
+Questo progetto è rilasciato sotto licenza **MIT**.
