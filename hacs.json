@@ -6,5 +6,6 @@
   "domains": [
     "sensor"
   ],
-  "iot_class": "cloud_polling"
+  "iot_class": "cloud_polling",
+  "filename": "custom_components/osmer_fvg/manifest.json"
 }

@@ -13,7 +13,6 @@ from homeassistant.helpers.selector import (
 )
 
 from ..api.models import Sensor, Station
-from ..helpers.distance import distance_km
 from .formatter import (
     sensor_label,
     station_label,
@@ -39,7 +38,7 @@ def build_selection_method_selector() -> vol.Schema:
                             label="📍 Cerca tramite indirizzo",
                         ),
                     ],
-                    mode=SelectSelectorMode.DROPDOWN,
+                    mode=SelectSelectorMode.LIST,
                 )
             )
         }
@@ -69,6 +68,7 @@ def build_station_selector(
     options: list[SelectOptionDict] = []
 
     for station in stations:
+
         options.append(
             SelectOptionDict(
                 value=str(station.id),
@@ -99,8 +99,8 @@ def build_station_selector(
 def build_nearest_station_selector(
     stations: list[Station],
     station_sensors: dict[int, list[Sensor]],
-    latitude: float,
-    longitude: float,
+    latitude: float | None = None,
+    longitude: float | None = None,
 ) -> vol.Schema:
     """Build nearest station selector."""
 
@@ -108,25 +108,18 @@ def build_nearest_station_selector(
 
     for station in stations:
 
-        distance = distance_km(
-            latitude,
-            longitude,
-            station.latitude,
-            station.longitude,
-        )
-
-        label = station_label(
-            station,
-            station_sensors.get(
-                station.id,
-                [],
-            ),
-        )
-
         options.append(
             SelectOptionDict(
                 value=str(station.id),
-                label=f"{label} - {distance:.1f} km",
+                label=station_label(
+                    station,
+                    station_sensors.get(
+                        station.id,
+                        [],
+                    ),
+                    latitude,
+                    longitude,
+                ),
             )
         )
 
@@ -152,6 +145,7 @@ def build_sensor_selector(
     options: list[SelectOptionDict] = []
 
     for sensor in sensors:
+
         options.append(
             SelectOptionDict(
                 value=sensor.code,
@@ -177,4 +171,20 @@ def build_sensor_selector(
                 )
             )
         }
+    )
+
+
+def build_back_selector() -> SelectSelector:
+    """Build back selector."""
+
+    return SelectSelector(
+        SelectSelectorConfig(
+            options=[
+                SelectOptionDict(
+                    value="__back__",
+                    label="⬅️ Indietro",
+                )
+            ],
+            mode=SelectSelectorMode.LIST,
+        )
     )

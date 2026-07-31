@@ -2,35 +2,59 @@
   "config": {
     "step": {
       "user": {
-        "title": "Configura OSMER FVG",
-        "description": "Seleziona la stazione meteorologica OSMER FVG da monitorare.",
+        "title": "Configurazione OSMER FVG",
+        "description": "Scegli come individuare la stazione meteorologica da utilizzare.",
         "data": {
-          "station": "Stazione meteorologica"
+          "selection_method": "Metodo di ricerca"
+        }
+      },
+      "station": {
+        "title": "Selezione stazione",
+        "description": "Seleziona una stazione meteorologica OSMER FVG.",
+        "data": {
+          "station": "Stazione"
+        }
+      },
+      "address": {
+        "title": "Ricerca tramite indirizzo",
+        "description": "Inserisci un indirizzo per trovare le stazioni più vicine.",
+        "data": {
+          "address": "Indirizzo"
+        }
+      },
+      "nearest": {
+        "title": "Stazioni vicine",
+        "description": "Sono state trovate queste stazioni vicino all'indirizzo indicato.",
+        "data": {
+          "station": "Stazione"
         }
       },
       "sensors": {
-        "title": "Seleziona sensori",
-        "description": "Seleziona i sensori che vuoi creare per la stazione selezionata.",
+        "title": "Selezione sensori",
+        "description": "Seleziona quali sensori vuoi creare per questa stazione.",
         "data": {
           "enabled_sensors": "Sensori disponibili"
         }
       },
       "confirm": {
         "title": "Conferma configurazione",
-        "description": "Stazione: {station}\nCoordinate: {latitude}, {longitude}\nAltitudine: {altitude}\n\nSensori selezionati ({sensor_count}):\n{sensors}"
+        "description": "Controlla i dati prima di completare la configurazione."
       }
     },
-    "abort": {
-      "cannot_connect": "Impossibile collegarsi al servizio OSMER FVG.",
-      "invalid_station": "La stazione selezionata non è disponibile.",
-      "missing_station": "Nessuna stazione selezionata.",
-      "missing_sensor_selection": "Nessun sensore selezionato.",
-      "already_configured": "Questa stazione è già configurata.",
-      "invalid_import": "Configurazione importata non valida."
-    },
     "error": {
-      "cannot_connect": "Errore di connessione al servizio OSMER FVG.",
-      "unknown": "Errore sconosciuto."
+      "cannot_connect": "Impossibile collegarsi al servizio OSMER FVG.",
+      "invalid_station": "La stazione selezionata non è valida.",
+      "no_nearby_stations": "Non sono state trovate stazioni vicine.",
+      "missing_coordinates": "Non sono disponibili coordinate per la ricerca.",
+      "missing_station": "Nessuna stazione selezionata.",
+      "missing_sensor_selection": "Seleziona almeno un sensore.",
+      "address_not_found": "Indirizzo non trovato.",
+      "invalid_address": "Inserisci un indirizzo valido."
+    },
+    "abort": {
+      "already_configured": "Questa stazione è già configurata.",
+      "cannot_connect": "Impossibile collegarsi al servizio OSMER FVG.",
+      "invalid_station": "Nessuna stazione valida disponibile."
     }
   }
 }

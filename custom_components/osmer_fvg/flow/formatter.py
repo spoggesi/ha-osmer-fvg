@@ -1,110 +1,140 @@
-"""Formatting helpers for the OSMER FVG config flow."""
+"""Formatting helpers for OSMER config flow."""
 
 from __future__ import annotations
 
 from ..api.models import Sensor, Station
-
-SENSOR_INFO = {
-
-    "T": "🌡️",
-    "U": "💧",
-
-    "RR": "🌧️",
-    "P": "🌧️",
-    "P_1h": "🌧️",
-
-    "Prec_5_min": "🌧️",
-    "Prec_60_min": "🌧️",
-    "Prec_3_ore": "🌧️",
-    "Prec_6_ore": "🌧️",
-    "Prec_12_ore": "🌧️",
-    "Prec_24_ore": "🌧️",
-    "Prec_48_ore": "🌧️",
-
-    "IDRO": "🌊",
-
-    "CAR": "🔋",
-    "SCAR": "🔋",
-
-    "STSpluv (RAW)": "⚙️",
-}
-
-
-def sensor_icon(
-    code: str,
-) -> str:
-    """Return icon."""
-
-    return SENSOR_INFO.get(
-        code,
-        "📈",
-    )
-
-
-def sensor_icons(
-    sensors: list[Sensor],
-) -> str:
-    """Return sensor icons."""
-
-    icons = []
-
-    for sensor in sensors:
-
-        icon = sensor_icon(
-            sensor.code,
-        )
-
-        if icon not in icons:
-            icons.append(icon)
-
-    return "".join(icons)
-
-
-
-def station_label(
-    station: Station,
-    sensors: list[Sensor],
-) -> str:
-    """Station selector label."""
-
-    return (
-        f"{station.name}"
-        f" • {int(station.altitude)} m"
-        f" • {sensor_icons(sensors)}"
-    )
-
+from ..helpers.distance import distance_km
 
 
 def sensor_label(
     sensor: Sensor,
 ) -> str:
-    """Sensor selector label."""
+    """Return formatted sensor label."""
 
-    return (
-        f"{sensor_icon(sensor.code)} "
-        f"{sensor.name}"
+    icon = sensor_icon(
+        sensor.code,
     )
 
+    return f"{icon} {sensor.name}"
 
 
-def confirmation_sensors(
-    sensors: list[Sensor],
+def station_label(
+    station: Station,
+    sensors: list[Sensor] | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
 ) -> str:
-    """Confirmation list."""
+    """Return formatted station label."""
 
-    return "\n".join(
-        f"✓ {sensor_label(sensor)}"
+    sensors = sensors or []
+
+    sensor_icons = "".join(
+        sensor_icon(
+            sensor.code,
+        )
         for sensor in sensors
     )
 
+    if sensor_icons:
+        sensor_text = f"{sensor_icons} "
+    else:
+        sensor_text = ""
 
 
-def station_coordinates(
-    station: Station,
-) -> str:
-    """Coordinates."""
+    extra = []
+
+
+    if latitude is not None and longitude is not None:
+
+        distance = distance_km(
+            latitude,
+            longitude,
+            station.latitude,
+            station.longitude,
+        )
+
+        extra.append(
+            f"📏 {distance:.1f} km"
+        )
+
+
+    if getattr(
+        station,
+        "altitude",
+        None,
+    ) is not None:
+
+        extra.append(
+            f"⛰ {station.altitude} m"
+        )
+
+
+    if sensors:
+
+        extra.append(
+            f"{len(sensors)} sensori"
+        )
+
+
+    if extra:
+
+        return (
+            f"{sensor_text}"
+            f"{station.name} "
+            f"({' | '.join(extra)})"
+        )
+
 
     return (
-        f"{station.latitude:.5f}, "
-        f"{station.longitude:.5f}"
+        f"{sensor_text}"
+        f"{station.name}"
     )
+
+
+def sensor_icon(
+    code: str,
+) -> str:
+    """Return icon associated with sensor."""
+
+    code = code.lower()
+
+
+    if "temp" in code:
+
+        return "🌡"
+
+
+    if (
+        "umid" in code
+        or "hum" in code
+    ):
+
+        return "💧"
+
+
+    if (
+        "rain" in code
+        or "piogg" in code
+        or "prec" in code
+    ):
+
+        return "🌧"
+
+
+    if (
+        "vento" in code
+        or "wind" in code
+    ):
+
+        return "💨"
+
+
+    if (
+        "press" in code
+        or "baro" in code
+    ):
+
+        return "🔵"
+
+
+    return "📊"
