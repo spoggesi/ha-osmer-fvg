@@ -40,7 +40,7 @@ class OsmerFvgConfigFlow(
     def __init__(self) -> None:
         """Initialize flow."""
 
-        self.context = FlowContext()
+        self.flow_context = FlowContext()
 
         self.loader: FlowLoader | None = None
         self.service: FlowService | None = None
@@ -59,7 +59,7 @@ class OsmerFvgConfigFlow(
 
             self.service = FlowService(
                 self.hass,
-                self.context,
+                self.flow_context,
                 self.loader,
             )
 
@@ -135,7 +135,7 @@ class OsmerFvgConfigFlow(
 
             self._abort_if_unique_id_configured()
 
-            self.context.station = station
+            self.flow_context.station = station
 
             return await self.async_step_sensors()
 
@@ -153,7 +153,7 @@ class OsmerFvgConfigFlow(
     ) -> ConfigFlowResult:
         """Handle sensor selection."""
 
-        if self.context.station is None:
+        if self.flow_context.station is None:
 
             return self.async_abort(
                 reason="missing_station",
@@ -162,7 +162,7 @@ class OsmerFvgConfigFlow(
         try:
 
             sensors = await self.service.load_sensors(
-                self.context.station,
+                self.flow_context.station,
             )
 
         except (
@@ -192,7 +192,7 @@ class OsmerFvgConfigFlow(
                     reason="missing_sensor_selection",
                 )
 
-            self.context.enabled_sensors = enabled
+            self.flow_context.enabled_sensors = enabled
 
             return await self.async_step_confirm()
 
@@ -209,7 +209,7 @@ class OsmerFvgConfigFlow(
     ) -> ConfigFlowResult:
         """Confirm configuration."""
 
-        if self.context.station is None:
+        if self.flow_context.station is None:
 
             return self.async_abort(
                 reason="missing_station",
@@ -217,14 +217,14 @@ class OsmerFvgConfigFlow(
 
         selected_sensors = [
             sensor
-            for sensor in self.context.sensors
+            for sensor in self.flow_context.sensors
             if sensor.code
-            in self.context.enabled_sensors
+            in self.flow_context.enabled_sensors
         ]
 
         if user_input is not None:
 
-            station = self.context.station
+            station = self.flow_context.station
 
             return self.async_create_entry(
                 title=build_entry_title(
@@ -232,14 +232,14 @@ class OsmerFvgConfigFlow(
                 ),
                 data=build_entry_data(
                     station,
-                    self.context.enabled_sensors,
+                    self.flow_context.enabled_sensors,
                 ),
             )
 
         return self.async_show_form(
             step_id="confirm",
             description_placeholders=build_description_placeholders(
-                self.context.station,
+                self.flow_context.station,
                 selected_sensors,
             ),
         )
