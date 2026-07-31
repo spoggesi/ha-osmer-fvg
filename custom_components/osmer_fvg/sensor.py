@@ -117,7 +117,7 @@ class OsmerSensor(
             configuration_url=(
                 "https://monitor.protezionecivile.fvg.it"
             ),
-            sw_version="0.1.2",
+            sw_version="0.1.3",
         )
 
     @property
