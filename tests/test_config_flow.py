@@ -10,19 +10,35 @@ from custom_components.osmer_fvg.const import DOMAIN
 async def test_user_flow(hass):
     """Test user config flow."""
 
-    with patch(
-        "custom_components.osmer_fvg.config_flow.OsmerApiClient.get_stations",
-        new_callable=AsyncMock,
-        return_value=[
-            type(
-                "Station",
-                (),
-                {
-                    "id": 51,
-                    "name": "Dignano",
-                },
-            )()
-        ],
+    station = type(
+        "Station",
+        (),
+        {
+            "id": 51,
+            "name": "Dignano",
+            "latitude": 46.0,
+            "longitude": 13.0,
+            "altitude": 100,
+        },
+    )()
+
+    with (
+        patch(
+            "custom_components.osmer_fvg.flow.service.FlowService.load_stations",
+            new_callable=AsyncMock,
+            return_value=[
+                station,
+            ],
+        ),
+        patch(
+            "custom_components.osmer_fvg.flow.service.FlowService.preload",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "custom_components.osmer_fvg.flow.loader.FlowLoader.get_sensors",
+            new_callable=AsyncMock,
+            return_value=[],
+        ),
     ):
         result = await hass.config_entries.flow.async_init(
             DOMAIN,

@@ -7,7 +7,7 @@ from math import asin, cos, radians, sin, sqrt
 EARTH_RADIUS_KM = 6371.0
 
 
-def haversine_distance(
+def distance_km(
     lat1: float,
     lon1: float,
     lat2: float,

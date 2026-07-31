@@ -5,13 +5,27 @@
         "title": "Configura OSMER FVG",
         "description": "Seleziona la stazione meteorologica OSMER FVG da monitorare.",
         "data": {
-          "station_id": "Stazione meteorologica"
+          "station": "Stazione meteorologica"
         }
+      },
+      "sensors": {
+        "title": "Seleziona sensori",
+        "description": "Seleziona i sensori che vuoi creare per la stazione selezionata.",
+        "data": {
+          "enabled_sensors": "Sensori disponibili"
+        }
+      },
+      "confirm": {
+        "title": "Conferma configurazione",
+        "description": "Stazione: {station}\n\nConfigurazione pronta per essere creata."
       }
     },
     "abort": {
       "cannot_connect": "Impossibile collegarsi al servizio OSMER FVG.",
       "invalid_station": "La stazione selezionata non è disponibile.",
+      "missing_station": "Nessuna stazione selezionata.",
+      "missing_sensor_selection": "Nessun sensore selezionato.",
+      "invalid_import": "Configurazione importata non valida.",
       "already_configured": "Questa stazione è già configurata."
     },
     "error": {

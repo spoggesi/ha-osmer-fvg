@@ -28,7 +28,7 @@ class NominatimGeocoder:
         self,
         address: str,
     ) -> tuple[float, float] | None:
-        """Return latitude and longitude for an address."""
+        """Return latitude and longitude."""
 
         query = (
             f"{address}, "
@@ -46,7 +46,7 @@ class NominatimGeocoder:
         }
 
         _LOGGER.debug(
-            "Geocoding address: %s",
+            "Searching address: %s",
             query,
         )
 
@@ -65,20 +65,13 @@ class NominatimGeocoder:
         except aiohttp.ClientError as err:
 
             _LOGGER.error(
-                "Unable to geocode '%s': %s",
-                address,
+                "Geocoder error: %s",
                 err,
             )
 
             return None
 
         if not results:
-
-            _LOGGER.debug(
-                "No results for '%s'",
-                address,
-            )
-
             return None
 
         result = results[0]
@@ -87,11 +80,3 @@ class NominatimGeocoder:
             float(result["lat"]),
             float(result["lon"]),
         )
-
-    async def search(
-        self,
-        address: str,
-    ) -> tuple[float, float] | None:
-        """Alias for geocode()."""
-
-        return await self.geocode(address)
