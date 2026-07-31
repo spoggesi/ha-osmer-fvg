@@ -21,6 +21,10 @@ jobs:
         run: |
           pip install -r requirements_test.txt
 
-      - name: Run tests
+      - name: Run ruff
+        run: |
+          ruff check .
+
+      - name: Run pytest
         run: |
           pytest -v

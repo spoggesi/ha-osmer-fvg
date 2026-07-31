@@ -9,13 +9,9 @@ jobs:
     name: Hassfest validation
     runs-on: ubuntu-latest
 
-    container:
-      image: ghcr.io/home-assistant/home-assistant:stable
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run hassfest
-        run: |
-          python -m script.hassfest
+      - name: Hassfest
+        uses: home-assistant/actions/hassfest@master
