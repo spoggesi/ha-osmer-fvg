@@ -61,9 +61,12 @@ async def test_coordinator_update(
     )
 
     coordinator = OsmerDataUpdateCoordinator(
-        hass,
-        client,
-        station_id=51,
+    hass,
+    client,
+    station_id=51,
+    enabled_sensors=[
+        "T",
+    ],
     )
 
     await coordinator.async_refresh()

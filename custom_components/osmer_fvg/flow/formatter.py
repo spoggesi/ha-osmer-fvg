@@ -4,63 +4,55 @@ from __future__ import annotations
 
 from ..api.models import Sensor, Station
 
-SENSOR_INFO: dict[str, dict[str, str]] = {
-    "T": {
-        "icon": "🌡",
-        "label": "Temperatura",
-    },
-    "U": {
-        "icon": "💧",
-        "label": "Umidità",
-    },
-    "P": {
-        "icon": "🌧",
-        "label": "Pioggia",
-    },
-    "RR": {
-        "icon": "🌦",
-        "label": "Pioggia 24h",
-    },
-    "IDRO": {
-        "icon": "🌊",
-        "label": "Idrometro",
-    },
+SENSOR_INFO = {
+
+    "T": "🌡️",
+    "U": "💧",
+
+    "RR": "🌧️",
+    "P": "🌧️",
+    "P_1h": "🌧️",
+
+    "Prec_5_min": "🌧️",
+    "Prec_60_min": "🌧️",
+    "Prec_3_ore": "🌧️",
+    "Prec_6_ore": "🌧️",
+    "Prec_12_ore": "🌧️",
+    "Prec_24_ore": "🌧️",
+    "Prec_48_ore": "🌧️",
+
+    "IDRO": "🌊",
+
+    "CAR": "🔋",
+    "SCAR": "🔋",
+
+    "STSpluv (RAW)": "⚙️",
 }
 
 
-def sensor_icon(code: str) -> str:
-    """Return the icon associated with a sensor code."""
+def sensor_icon(
+    code: str,
+) -> str:
+    """Return icon."""
 
     return SENSOR_INFO.get(
         code,
-        {},
-    ).get(
-        "icon",
         "📈",
-    )
-
-
-def sensor_display_name(code: str) -> str:
-    """Return the human-readable name for a sensor code."""
-
-    return SENSOR_INFO.get(
-        code,
-        {},
-    ).get(
-        "label",
-        code,
     )
 
 
 def sensor_icons(
     sensors: list[Sensor],
 ) -> str:
-    """Return a compact string of sensor icons."""
+    """Return sensor icons."""
 
-    icons: list[str] = []
+    icons = []
 
     for sensor in sensors:
-        icon = sensor_icon(sensor.code)
+
+        icon = sensor_icon(
+            sensor.code,
+        )
 
         if icon not in icons:
             icons.append(icon)
@@ -68,11 +60,12 @@ def sensor_icons(
     return "".join(icons)
 
 
+
 def station_label(
     station: Station,
     sensors: list[Sensor],
 ) -> str:
-    """Return the formatted label shown in the station selector."""
+    """Station selector label."""
 
     return (
         f"{station.name}"
@@ -81,10 +74,11 @@ def station_label(
     )
 
 
+
 def sensor_label(
     sensor: Sensor,
 ) -> str:
-    """Return the formatted label shown in the sensor selector."""
+    """Sensor selector label."""
 
     return (
         f"{sensor_icon(sensor.code)} "
@@ -92,10 +86,11 @@ def sensor_label(
     )
 
 
+
 def confirmation_sensors(
     sensors: list[Sensor],
 ) -> str:
-    """Return the sensor list shown in the confirmation page."""
+    """Confirmation list."""
 
     return "\n".join(
         f"✓ {sensor_label(sensor)}"
@@ -103,10 +98,11 @@ def confirmation_sensors(
     )
 
 
+
 def station_coordinates(
     station: Station,
 ) -> str:
-    """Return formatted station coordinates."""
+    """Coordinates."""
 
     return (
         f"{station.latitude:.5f}, "

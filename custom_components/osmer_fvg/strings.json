@@ -17,7 +17,7 @@
       },
       "confirm": {
         "title": "Conferma configurazione",
-        "description": "Stazione: {station}\n\nConfigurazione pronta per essere creata."
+        "description": "Stazione: {station}\nCoordinate: {latitude}, {longitude}\nAltitudine: {altitude}\n\nSensori selezionati ({sensor_count}):\n{sensors}"
       }
     },
     "abort": {
@@ -25,25 +25,12 @@
       "invalid_station": "La stazione selezionata non è disponibile.",
       "missing_station": "Nessuna stazione selezionata.",
       "missing_sensor_selection": "Nessun sensore selezionato.",
-      "invalid_import": "Configurazione importata non valida.",
-      "already_configured": "Questa stazione è già configurata."
+      "already_configured": "Questa stazione è già configurata.",
+      "invalid_import": "Configurazione importata non valida."
     },
     "error": {
       "cannot_connect": "Errore di connessione al servizio OSMER FVG.",
       "unknown": "Errore sconosciuto."
-    }
-  },
-  "entity": {
-    "sensor": {
-      "temperature": {
-        "name": "Temperatura"
-      },
-      "humidity": {
-        "name": "Umidità"
-      },
-      "rain": {
-        "name": "Pioggia"
-      }
     }
   }
 }

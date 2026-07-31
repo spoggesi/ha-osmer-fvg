@@ -22,16 +22,23 @@ async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
 ) -> bool:
-    """Set up OSMER FVG."""
+    """Set up OSMER FVG from a config entry."""
 
-    session = async_get_clientsession(hass)
+    session = async_get_clientsession(
+        hass,
+    )
 
-    client = OsmerApiClient(session)
+    client = OsmerApiClient(
+        session,
+    )
 
     coordinator = OsmerDataUpdateCoordinator(
         hass,
         client,
         station_id=entry.data["station_id"],
+        enabled_sensors=entry.data.get(
+            "enabled_sensors",
+        ),
     )
 
     await coordinator.async_config_entry_first_refresh()
@@ -55,7 +62,7 @@ async def async_unload_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
 ) -> bool:
-    """Unload OSMER entry."""
+    """Unload OSMER FVG entry."""
 
     unload_ok = await hass.config_entries.async_unload_platforms(
         entry,
@@ -63,6 +70,9 @@ async def async_unload_entry(
     )
 
     if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id)
+
+        hass.data[DOMAIN].pop(
+            entry.entry_id,
+        )
 
     return unload_ok

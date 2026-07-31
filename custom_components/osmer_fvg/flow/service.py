@@ -24,14 +24,13 @@ class FlowService:
         self,
         hass: HomeAssistant,
         context: FlowContext,
+        loader: FlowLoader,
     ) -> None:
         """Initialize."""
 
         self._context = context
 
-        self._loader = FlowLoader(
-            hass,
-        )
+        self._loader = loader
 
         self._geocoder = NominatimGeocoder(
             async_get_clientsession(

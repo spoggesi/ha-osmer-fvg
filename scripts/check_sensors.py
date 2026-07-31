@@ -1,12 +1,13 @@
-"""Check available OSMER sensors and latest values."""
+"""Export all available OSMER sensors."""
 
 from __future__ import annotations
 
 import asyncio
+import json
 import sys
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import aiofiles
 import aiohttp
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -18,66 +19,100 @@ from custom_components.osmer_fvg.api.exceptions import (
     OsmerConnectionError,
 )
 
+# Cambia qui la stazione da analizzare
 STATION_ID = 209
+
+OUTPUT_FILE = "osmer_available_sensors.json"
 
 
 async def main() -> None:
-    """Run sensor check."""
+    """Export sensors."""
 
     print("=" * 70)
-    print("OSMER SENSOR CHECK")
+    print("OSMER SENSOR EXPORT")
     print("=" * 70)
 
     async with aiohttp.ClientSession() as session:
-        client = OsmerApiClient(session)
 
-        sensors = await client.get_sensors(STATION_ID)
+        client = OsmerApiClient(
+            session,
+        )
 
-        print()
-        print("AVAILABLE SENSORS")
-        print("-" * 70)
-
-        for sensor in sensors:
-            print(
-                f"{sensor.id:3} | {sensor.code:12} | {sensor.name:35} | {sensor.unit}"
+        try:
+            sensors = await client.get_sensors(
+                STATION_ID,
             )
 
-        print()
-        print("=" * 70)
-        print("LATEST VALUES")
-        print("=" * 70)
+        except (
+            OsmerApiResponseError,
+            OsmerConnectionError,
+        ) as err:
 
-        now = datetime.now(timezone.utc)
+            print(
+                f"Errore recupero sensori: {err}"
+            )
 
-        start = now - timedelta(hours=3)
+            return
+
+        exported: list[dict[str, str]] = []
+
+        seen: set[str] = set()
 
         for sensor in sensors:
-            try:
-                measures = await client.get_measures(
-                    station_id=STATION_ID,
-                    sensor_id=sensor.id,
-                    start=start.isoformat(),
-                    end=now.isoformat(),
-                )
 
-                if not measures:
-                    print(f"{sensor.code:12} -> NO DATA")
-                    continue
+            if sensor.code in seen:
+                continue
 
-                latest = measures[-1]
+            seen.add(
+                sensor.code,
+            )
 
-                print(
-                    f"{sensor.code:12} -> "
-                    f"{latest.value} {sensor.unit} "
-                    f"({latest.timestamp})"
-                )
+            exported.append(
+                {
+                    "code": sensor.code,
+                    "name": sensor.name,
+                    "unit": sensor.unit,
+                }
+            )
 
-            except (
-                OsmerApiResponseError,
-                OsmerConnectionError,
-                aiohttp.ClientError,
-            ) as err:
-                print(f"{sensor.code:12} -> ERROR {err}")
+        exported.sort(
+            key=lambda item: item["code"],
+        )
+
+    async with aiofiles.open(
+        OUTPUT_FILE,
+        "w",
+        encoding="utf-8",
+    ) as file:
+
+        await file.write(
+            json.dumps(
+                exported,
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+
+    print()
+    print(
+        f"Sensori trovati: {len(exported)}"
+    )
+
+    print()
+
+    for sensor in exported:
+
+        print(
+            f'{sensor["code"]:20} | '
+            f'{sensor["name"]:40} | '
+            f'{sensor["unit"]}'
+        )
+
+    print()
+
+    print(
+        f"Creato file: {OUTPUT_FILE}"
+    )
 
 
 if __name__ == "__main__":

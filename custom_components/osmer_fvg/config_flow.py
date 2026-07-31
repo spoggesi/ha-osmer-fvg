@@ -1,17 +1,19 @@
-"""Config flow for the OSMER FVG integration."""
+"""Config flow for OSMER FVG integration."""
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
-import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.data_entry_flow import FlowResult
+from homeassistant.config_entries import ConfigFlowResult
 
-from .const import DOMAIN
-from .flow.confirm import (
-    build_description_placeholders,
+from .api.exceptions import (
+    OsmerApiResponseError,
+    OsmerConnectionError,
 )
+from .const import DOMAIN
+from .flow.confirm import build_description_placeholders
 from .flow.context import FlowContext
 from .flow.entry import (
     build_entry_data,
@@ -24,39 +26,89 @@ from .flow.selectors import (
 )
 from .flow.service import FlowService
 
+_LOGGER = logging.getLogger(__name__)
 
-class OsmerFVGConfigFlow(
+
+class OsmerFvgConfigFlow(
     config_entries.ConfigFlow,
     domain=DOMAIN,
 ):
-    """Handle an OSMER FVG config flow."""
+    """Handle OSMER FVG config flow."""
 
-    VERSION = 2
+    VERSION = 1
 
     def __init__(self) -> None:
-        """Initialize the config flow."""
+        """Initialize flow."""
 
-        self._context = FlowContext()
+        self.context = FlowContext()
 
-        self._loader: FlowLoader | None = None
-
-        self._service: FlowService | None = None
+        self.loader: FlowLoader | None = None
+        self.service: FlowService | None = None
 
     async def async_step_user(
         self,
         user_input: dict[str, Any] | None = None,
-    ) -> FlowResult:
-        """Choose the weather station."""
+    ) -> ConfigFlowResult:
+        """Handle station selection."""
 
-        if self._loader is None:
-            self._loader = FlowLoader(
+        if self.loader is None:
+
+            self.loader = FlowLoader(
                 self.hass,
             )
 
-        if self._service is None:
-            self._service = FlowService(
+            self.service = FlowService(
                 self.hass,
-                self._context,
+                self.context,
+                self.loader,
+            )
+
+        try:
+
+            stations = await self.service.load_stations()
+
+        except (
+            OsmerConnectionError,
+            OsmerApiResponseError,
+        ) as err:
+
+            _LOGGER.warning(
+                "Unable to load OSMER stations: %s",
+                err,
+            )
+
+            return self.async_abort(
+                reason="cannot_connect",
+            )
+
+        if not stations:
+
+            return self.async_abort(
+                reason="invalid_station",
+            )
+
+        station_sensors: dict[int, Any] = {}
+
+        try:
+
+            await self.service.preload()
+
+            for station in stations:
+
+                station_sensors[station.id] = (
+                    await self.loader.get_sensors(
+                        station,
+                    )
+                )
+
+        except (
+            OsmerConnectionError,
+            OsmerApiResponseError,
+        ) as err:
+
+            _LOGGER.warning(
+                "Unable to preload sensors: %s",
+                err,
             )
 
         if user_input is not None:
@@ -65,7 +117,7 @@ class OsmerFVGConfigFlow(
                 user_input["station"],
             )
 
-            station = await self._loader.get_station(
+            station = await self.service.load_station(
                 station_id,
             )
 
@@ -75,37 +127,17 @@ class OsmerFVGConfigFlow(
                     reason="invalid_station",
                 )
 
-            self._context.station = station
-
             await self.async_set_unique_id(
-                f"osmer_station_{station.id}",
+                str(
+                    station.id,
+                )
             )
 
             self._abort_if_unique_id_configured()
 
-            sensors = await self._service.load_sensors(
-                station,
-            )
+            self.context.station = station
 
-            self._context.sensors = sensors
-
-            return self.async_show_form(
-                step_id="sensors",
-                data_schema=build_sensor_selector(
-                    sensors,
-                ),
-            )
-
-        stations = await self._service.load_stations()
-
-        await self._service.preload()
-
-        station_sensors = {
-            station.id: await self._loader.get_sensors(
-                station,
-            )
-            for station in stations
-        }
+            return await self.async_step_sensors()
 
         return self.async_show_form(
             step_id="user",
@@ -118,99 +150,96 @@ class OsmerFVGConfigFlow(
     async def async_step_sensors(
         self,
         user_input: dict[str, Any] | None = None,
-    ) -> FlowResult:
-        """Choose sensors to enable."""
+    ) -> ConfigFlowResult:
+        """Handle sensor selection."""
 
-        if user_input is None:
-
-            return self.async_abort(
-                reason="missing_sensor_selection",
-            )
-
-        self._context.enabled_sensors = (
-            user_input.get(
-                "enabled_sensors",
-                [],
-            )
-        )
-
-        if self._context.station is None:
+        if self.context.station is None:
 
             return self.async_abort(
                 reason="missing_station",
             )
 
-        return self.async_show_form(
-            step_id="confirm",
-            data_schema=vol.Schema({}),
-            description_placeholders=(
-                build_description_placeholders(
-                    self._context.station,
-                    self._context.sensors,
+        try:
+
+            sensors = await self.service.load_sensors(
+                self.context.station,
+            )
+
+        except (
+            OsmerConnectionError,
+            OsmerApiResponseError,
+        ) as err:
+
+            _LOGGER.warning(
+                "Unable to load sensors: %s",
+                err,
+            )
+
+            return self.async_abort(
+                reason="cannot_connect",
+            )
+
+        if user_input is not None:
+
+            enabled = user_input.get(
+                "enabled_sensors",
+                [],
+            )
+
+            if not enabled:
+
+                return self.async_abort(
+                    reason="missing_sensor_selection",
                 )
+
+            self.context.enabled_sensors = enabled
+
+            return await self.async_step_confirm()
+
+        return self.async_show_form(
+            step_id="sensors",
+            data_schema=build_sensor_selector(
+                sensors,
             ),
         )
 
     async def async_step_confirm(
         self,
         user_input: dict[str, Any] | None = None,
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Confirm configuration."""
 
-        if self._context.station is None:
+        if self.context.station is None:
 
             return self.async_abort(
                 reason="missing_station",
             )
 
-        if user_input is None:
+        selected_sensors = [
+            sensor
+            for sensor in self.context.sensors
+            if sensor.code
+            in self.context.enabled_sensors
+        ]
 
-            return self.async_show_form(
-                step_id="confirm",
-                data_schema=vol.Schema({}),
-                description_placeholders=(
-                    build_description_placeholders(
-                        self._context.station,
-                        self._context.sensors,
-                    )
+        if user_input is not None:
+
+            station = self.context.station
+
+            return self.async_create_entry(
+                title=build_entry_title(
+                    station,
+                ),
+                data=build_entry_data(
+                    station,
+                    self.context.enabled_sensors,
                 ),
             )
 
-        entry_data = build_entry_data(
-            station=self._context.station,
-            enabled_sensors=self._context.enabled_sensors,
-        )
-
-        return self.async_create_entry(
-            title=build_entry_title(
-                self._context.station,
+        return self.async_show_form(
+            step_id="confirm",
+            description_placeholders=build_description_placeholders(
+                self.context.station,
+                selected_sensors,
             ),
-            data=entry_data,
-        )
-
-    async def async_step_import(
-        self,
-        import_info: dict[str, Any],
-    ) -> FlowResult:
-        """Handle import from configuration.yaml."""
-
-        station_id = import_info.get(
-            "station_id",
-        )
-
-        if station_id is None:
-
-            return self.async_abort(
-                reason="invalid_import",
-            )
-
-        await self.async_set_unique_id(
-            f"osmer_station_{station_id}",
-        )
-
-        self._abort_if_unique_id_configured()
-
-        return self.async_create_entry(
-            title="OSMER FVG",
-            data=import_info,
         )
