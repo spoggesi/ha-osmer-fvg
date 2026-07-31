@@ -1,18 +1,18 @@
 {
   "domain": "osmer_fvg",
   "name": "OSMER FVG",
-  "version": "0.1.3",
-  "documentation": "https://github.com/spoggesi/ha-osmer-fvg",
-  "issue_tracker": "https://github.com/spoggesi/ha-osmer-fvg/issues",
   "codeowners": [
     "@spoggesi"
   ],
   "config_flow": true,
+  "documentation": "https://github.com/spoggesi/ha-osmer-fvg",
   "integration_type": "service",
   "iot_class": "cloud_polling",
-  "quality_scale": "silver",
-  "requirements": [],
+  "issue_tracker": "https://github.com/spoggesi/ha-osmer-fvg/issues",
   "loggers": [
     "custom_components.osmer_fvg"
-  ]
+  ],
+  "quality_scale": "silver",
+  "requirements": [],
+  "version": "0.1.3"
 }
