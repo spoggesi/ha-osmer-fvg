@@ -8,7 +8,7 @@ from custom_components.osmer_fvg.const import DOMAIN
 
 
 async def test_user_flow(hass):
-    """Test user config flow."""
+    """Test initial config flow step."""
 
     station = type(
         "Station",

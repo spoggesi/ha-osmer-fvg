@@ -12,9 +12,19 @@ class FlowContext:
     """Shared data used by the config flow."""
 
     #
+    # Selection method
+    #
+    # "address" -> search by address
+    # "station" -> select from station list
+    #
+    selection_method: str | None = None
+
+    #
     # Stations
     #
-    stations: list[Station] = field(default_factory=list)
+    stations: list[Station] = field(
+        default_factory=list,
+    )
 
     #
     # Selected station
@@ -24,23 +34,27 @@ class FlowContext:
     #
     # Sensors of selected station
     #
-    sensors: list[Sensor] = field(default_factory=list)
+    sensors: list[Sensor] = field(
+        default_factory=list,
+    )
 
     #
-    # Enabled sensors chosen by the user
+    # Enabled sensors chosen by user
     #
-    enabled_sensors: list[str] = field(default_factory=list)
+    enabled_sensors: list[str] = field(
+        default_factory=list,
+    )
 
     #
     # Cache:
     # station_id -> sensors
     #
     sensor_cache: dict[int, list[Sensor]] = field(
-        default_factory=dict
+        default_factory=dict,
     )
 
     #
-    # Address entered by the user
+    # Address entered by user
     #
     address: str | None = None
 
@@ -54,19 +68,39 @@ class FlowContext:
     #
     # Nearest stations
     #
-    nearest: list[Station] = field(default_factory=list)
+    nearest: list[Station] = field(
+        default_factory=list,
+    )
 
     def clear_selection(self) -> None:
-        """Reset the selected station."""
+        """Reset selected station."""
 
         self.station = None
+
         self.sensors.clear()
+
         self.enabled_sensors.clear()
 
     def clear_address(self) -> None:
         """Reset address search."""
 
         self.address = None
+
         self.latitude = None
+
         self.longitude = None
+
         self.nearest.clear()
+
+    def reset(self) -> None:
+        """Reset complete flow context."""
+
+        self.selection_method = None
+
+        self.stations.clear()
+
+        self.clear_selection()
+
+        self.sensor_cache.clear()
+
+        self.clear_address()

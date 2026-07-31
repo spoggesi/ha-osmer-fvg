@@ -48,13 +48,12 @@ class OsmerFvgConfigFlow(
         self.loader: FlowLoader | None = None
         self.service: FlowService | None = None
 
-    async def async_step_user(
-        self,
-        user_input: dict[str, Any] | None = None,
-    ) -> ConfigFlowResult:
-        """Handle station selection method."""
+
+    async def _initialize(self) -> bool:
+        """Initialize services and load stations."""
 
         if self.loader is None:
+
             self.loader = FlowLoader(
                 self.hass,
             )
@@ -65,19 +64,17 @@ class OsmerFvgConfigFlow(
                 self.loader,
             )
 
-        if self.service is None or self.loader is None:
-            return self.async_abort(
-                reason="cannot_connect",
-            )
+        if self.service is None:
+            return False
 
         try:
+
             if not self.flow_context.stations:
+
                 stations = await self.service.load_stations()
 
                 if not stations:
-                    return self.async_abort(
-                        reason="invalid_station",
-                    )
+                    return False
 
                 await self.service.preload()
 
@@ -85,36 +82,90 @@ class OsmerFvgConfigFlow(
             OsmerConnectionError,
             OsmerApiResponseError,
         ) as err:
+
             _LOGGER.warning(
                 "Unable to load OSMER data: %s",
                 err,
             )
 
+            return False
+
+        return True
+
+
+    async def _load_station_sensors(
+        self,
+        stations,
+    ) -> None:
+        """Load sensors only for required stations."""
+
+        if self.loader is None:
+            return
+
+        for station in stations:
+
+            if station.id in self.flow_context.sensor_cache:
+                continue
+
+            try:
+
+                sensors = await self.loader.get_sensors(
+                    station,
+                )
+
+                self.flow_context.sensor_cache[
+                    station.id
+                ] = sensors
+
+            except (
+                OsmerConnectionError,
+                OsmerApiResponseError,
+            ):
+
+                self.flow_context.sensor_cache[
+                    station.id
+                ] = []
+
+
+    async def async_step_user(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> ConfigFlowResult:
+        """Select configuration method."""
+
+        if not await self._initialize():
+
             return self.async_abort(
                 reason="cannot_connect",
             )
 
+
         if user_input is not None:
-            selection_method = user_input.get(
+
+            method = user_input.get(
                 "selection_method",
             )
 
-            if selection_method == "distance":
+            if method == "station":
+
+                return await self.async_step_station()
+
+            if method == "address":
+
                 return await self.async_step_address()
 
-            if selection_method == "station":
-                return await self.async_step_station()
 
         return self.async_show_form(
             step_id="user",
             data_schema=build_selection_method_selector(),
         )
 
+
     async def async_step_station(
         self,
         user_input: dict[str, Any] | None = None,
     ) -> ConfigFlowResult:
-        """Handle direct station selection."""
+        """Select station manually."""
 
         if self.service is None:
             return self.async_abort(
@@ -123,11 +174,12 @@ class OsmerFvgConfigFlow(
 
         stations = self.flow_context.stations
 
-        station_sensors = (
-            self.flow_context.sensor_cache
+        await self._load_station_sensors(
+            stations,
         )
 
         if user_input is not None:
+
             station_id = int(
                 user_input["station"],
             )
@@ -137,12 +189,15 @@ class OsmerFvgConfigFlow(
             )
 
             if station is None:
+
                 return self.async_abort(
                     reason="invalid_station",
                 )
 
             await self.async_set_unique_id(
-                str(station.id),
+                str(
+                    station.id,
+                )
             )
 
             self._abort_if_unique_id_configured()
@@ -151,129 +206,110 @@ class OsmerFvgConfigFlow(
 
             return await self.async_step_sensors()
 
+
         return self.async_show_form(
             step_id="station",
             data_schema=build_station_selector(
                 stations,
-                station_sensors,
+                self.flow_context.sensor_cache,
             ),
         )
+
 
     async def async_step_address(
         self,
         user_input: dict[str, Any] | None = None,
     ) -> ConfigFlowResult:
-        """Handle address search."""
+        """Search station by address."""
 
         if self.service is None:
+
             return self.async_abort(
                 reason="cannot_connect",
             )
 
+
         if user_input is not None:
+
             address = user_input.get(
                 "address",
                 "",
             ).strip()
 
-            if not address:
-                return self.async_show_form(
-                    step_id="address",
-                    data_schema=build_address_selector(),
-                    errors={
-                        "address": "invalid_address",
-                    },
-                )
 
-            try:
-                result = await self.service.search_address(
-                    address,
-                )
+            result = await self.service.search_address(
+                address,
+            )
 
-            except (
-                OsmerConnectionError,
-                OsmerApiResponseError,
-            ) as err:
-                _LOGGER.warning(
-                    "Unable to geocode address: %s",
-                    err,
-                )
-
-                return self.async_show_form(
-                    step_id="address",
-                    data_schema=build_address_selector(),
-                    errors={
-                        "base": "cannot_connect",
-                    },
-                )
 
             if result is None:
+
                 return self.async_show_form(
                     step_id="address",
                     data_schema=build_address_selector(),
                     errors={
-                        "address": "address_not_found",
+                        "base": "address_not_found",
                     },
                 )
+
 
             nearest = self.service.nearest_stations(
                 limit=5,
             )
 
-            if not nearest:
-                return self.async_abort(
-                    reason="no_nearby_stations",
-                )
+
+            await self._load_station_sensors(
+                nearest,
+            )
+
 
             return await self.async_step_nearest()
+
 
         return self.async_show_form(
             step_id="address",
             data_schema=build_address_selector(),
         )
 
+
     async def async_step_nearest(
         self,
         user_input: dict[str, Any] | None = None,
     ) -> ConfigFlowResult:
-        """Handle nearest station selection."""
+        """Select nearest station."""
 
         if self.service is None:
             return self.async_abort(
                 reason="cannot_connect",
             )
 
-        latitude = self.flow_context.latitude
-        longitude = self.flow_context.longitude
 
-        if latitude is None or longitude is None:
-            return self.async_abort(
-                reason="missing_coordinates",
-            )
+        stations = self.flow_context.nearest
 
-        nearest = self.flow_context.nearest
-
-        if not nearest:
-            nearest = self.service.nearest_stations(
-                limit=5,
-            )
 
         if user_input is not None:
+
             station_id = int(
                 user_input["station"],
             )
+
 
             station = await self.service.load_station(
                 station_id,
             )
 
+
             if station is None:
+
                 return self.async_abort(
                     reason="invalid_station",
                 )
 
+
             await self.async_set_unique_id(
-                str(station.id),
+                str(
+                    station.id,
+                )
             )
 
             self._abort_if_unique_id_configured()
@@ -282,64 +318,63 @@ class OsmerFvgConfigFlow(
 
             return await self.async_step_sensors()
 
+
+
         return self.async_show_form(
             step_id="nearest",
             data_schema=build_nearest_station_selector(
-                nearest,
+                stations,
                 self.flow_context.sensor_cache,
-                latitude,
-                longitude,
+                self.flow_context.latitude,
+                self.flow_context.longitude,
             ),
         )
+
 
     async def async_step_sensors(
         self,
         user_input: dict[str, Any] | None = None,
     ) -> ConfigFlowResult:
-        """Handle sensor selection."""
+        """Select sensors."""
 
         if self.flow_context.station is None:
+
             return self.async_abort(
                 reason="missing_station",
             )
 
         if self.service is None:
-            return self.async_abort(
-                reason="cannot_connect",
-            )
-
-        try:
-            sensors = await self.service.load_sensors(
-                self.flow_context.station,
-            )
-
-        except (
-            OsmerConnectionError,
-            OsmerApiResponseError,
-        ) as err:
-            _LOGGER.warning(
-                "Unable to load sensors: %s",
-                err,
-            )
 
             return self.async_abort(
                 reason="cannot_connect",
             )
+
+
+        sensors = await self.service.load_sensors(
+            self.flow_context.station,
+        )
+
 
         if user_input is not None:
+
             enabled = user_input.get(
                 "enabled_sensors",
                 [],
             )
 
+
             if not enabled:
+
                 return self.async_abort(
                     reason="missing_sensor_selection",
                 )
 
+
             self.flow_context.enabled_sensors = enabled
 
             return await self.async_step_confirm()
+
+
 
         return self.async_show_form(
             step_id="sensors",
@@ -348,6 +383,7 @@ class OsmerFvgConfigFlow(
             ),
         )
 
+
     async def async_step_confirm(
         self,
         user_input: dict[str, Any] | None = None,
@@ -355,9 +391,11 @@ class OsmerFvgConfigFlow(
         """Confirm configuration."""
 
         if self.flow_context.station is None:
+
             return self.async_abort(
                 reason="missing_station",
             )
+
 
         selected_sensors = [
             sensor
@@ -366,8 +404,11 @@ class OsmerFvgConfigFlow(
             in self.flow_context.enabled_sensors
         ]
 
+
         if user_input is not None:
+
             station = self.flow_context.station
+
 
             return self.async_create_entry(
                 title=build_entry_title(
@@ -378,6 +419,7 @@ class OsmerFvgConfigFlow(
                     self.flow_context.enabled_sensors,
                 ),
             )
+
 
         return self.async_show_form(
             step_id="confirm",

@@ -9,6 +9,7 @@ from homeassistant.helpers.selector import (
     SelectSelectorConfig,
     SelectSelectorMode,
     TextSelector,
+    TextSelectorConfig,
 )
 
 from ..api.models import Sensor, Station
@@ -20,18 +21,7 @@ from .formatter import (
 
 
 def build_selection_method_selector() -> vol.Schema:
-    """Build the station selection method selector."""
-
-    options = [
-        SelectOptionDict(
-            value="station",
-            label="Seleziona una stazione",
-        ),
-        SelectOptionDict(
-            value="distance",
-            label="Trova stazioni vicino a un indirizzo",
-        ),
-    ]
+    """Build initial selection method selector."""
 
     return vol.Schema(
         {
@@ -39,7 +29,16 @@ def build_selection_method_selector() -> vol.Schema:
                 "selection_method",
             ): SelectSelector(
                 SelectSelectorConfig(
-                    options=options,
+                    options=[
+                        SelectOptionDict(
+                            value="station",
+                            label="📡 Seleziona stazione",
+                        ),
+                        SelectOptionDict(
+                            value="address",
+                            label="📍 Cerca tramite indirizzo",
+                        ),
+                    ],
                     mode=SelectSelectorMode.DROPDOWN,
                 )
             )
@@ -48,13 +47,15 @@ def build_selection_method_selector() -> vol.Schema:
 
 
 def build_address_selector() -> vol.Schema:
-    """Build the address selector."""
+    """Build address input selector."""
 
     return vol.Schema(
         {
             vol.Required(
                 "address",
-            ): TextSelector(),
+            ): TextSelector(
+                TextSelectorConfig()
+            )
         }
     )
 
@@ -63,7 +64,7 @@ def build_station_selector(
     stations: list[Station],
     station_sensors: dict[int, list[Sensor]],
 ) -> vol.Schema:
-    """Build the station selector."""
+    """Build station selector."""
 
     options: list[SelectOptionDict] = []
 
@@ -101,11 +102,12 @@ def build_nearest_station_selector(
     latitude: float,
     longitude: float,
 ) -> vol.Schema:
-    """Build selector for nearest stations."""
+    """Build nearest station selector."""
 
     options: list[SelectOptionDict] = []
 
     for station in stations:
+
         distance = distance_km(
             latitude,
             longitude,
@@ -124,7 +126,7 @@ def build_nearest_station_selector(
         options.append(
             SelectOptionDict(
                 value=str(station.id),
-                label=f"{label} — {distance:.1f} km",
+                label=f"{label} - {distance:.1f} km",
             )
         )
 
@@ -135,7 +137,7 @@ def build_nearest_station_selector(
             ): SelectSelector(
                 SelectSelectorConfig(
                     options=options,
-                    mode=SelectSelectorMode.LIST,
+                    mode=SelectSelectorMode.DROPDOWN,
                 )
             )
         }
@@ -145,7 +147,7 @@ def build_nearest_station_selector(
 def build_sensor_selector(
     sensors: list[Sensor],
 ) -> vol.Schema:
-    """Build the sensor selector."""
+    """Build sensor selector."""
 
     options: list[SelectOptionDict] = []
 
@@ -153,7 +155,9 @@ def build_sensor_selector(
         options.append(
             SelectOptionDict(
                 value=sensor.code,
-                label=sensor_label(sensor),
+                label=sensor_label(
+                    sensor,
+                ),
             )
         )
 
