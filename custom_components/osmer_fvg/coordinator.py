@@ -40,12 +40,10 @@ class OsmerData:
     measures: dict[str, Measure]
 
 
-
 class OsmerDataUpdateCoordinator(
     DataUpdateCoordinator[OsmerData],
 ):
     """Coordinator for OSMER weather data."""
-
 
     def __init__(
         self,
@@ -57,11 +55,8 @@ class OsmerDataUpdateCoordinator(
         """Initialize coordinator."""
 
         self.client = client
-
         self.station_id = station_id
-
-        self.enabled_sensors = enabled_sensors
-
+        self.enabled_sensors = enabled_sensors or []
 
         super().__init__(
             hass,
@@ -72,60 +67,41 @@ class OsmerDataUpdateCoordinator(
             ),
         )
 
-
     async def _async_update_data(
         self,
     ) -> OsmerData:
         """Fetch data from OSMER API."""
 
         try:
-
             station = await self.client.get_station(
                 self.station_id,
             )
-
 
             sensors_data = await self.client.get_sensors(
                 self.station_id,
             )
 
-
             sensors: dict[str, Sensor] = {}
-
             measures: dict[str, Measure] = {}
-
 
             now = datetime.now(
                 timezone.utc,
             )
 
-
             start = now - timedelta(
                 hours=3,
             )
 
-
             for sensor in sensors_data:
-
-
                 if sensor.code not in MONITORED_SENSORS:
                     continue
 
-
-                if (
-                    self.enabled_sensors
-                    and sensor.code
-                    not in self.enabled_sensors
-                ):
+                if sensor.code not in self.enabled_sensors:
                     continue
-
-
 
                 sensors[sensor.code] = sensor
 
-
                 try:
-
                     values = await self.client.get_measures(
                         station_id=self.station_id,
                         sensor_id=sensor.id,
@@ -133,27 +109,19 @@ class OsmerDataUpdateCoordinator(
                         end=now.isoformat(),
                     )
 
-
                 except (
                     OsmerConnectionError,
                     OsmerApiResponseError,
                 ) as err:
-
                     _LOGGER.warning(
                         "Unable to fetch %s: %s",
                         sensor.code,
                         err,
                     )
-
                     continue
 
-
-
                 if values:
-
                     measures[sensor.code] = values[-1]
-
-
 
             return OsmerData(
                 station=station,
@@ -161,12 +129,10 @@ class OsmerDataUpdateCoordinator(
                 measures=measures,
             )
 
-
         except (
             OsmerConnectionError,
             OsmerApiResponseError,
         ) as err:
-
             raise UpdateFailed(
                 f"Unable to fetch OSMER data: {err}",
             ) from err

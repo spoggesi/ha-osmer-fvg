@@ -33,15 +33,14 @@ async def async_setup_entry(
 
     entities: list[SensorEntity] = []
 
-    for code in coordinator.data.sensors:
-
-        if code not in MONITORED_SENSORS:
+    for sensor_code in coordinator.data.sensors:
+        if sensor_code not in MONITORED_SENSORS:
             continue
 
         entities.append(
             OsmerSensor(
                 coordinator,
-                code,
+                sensor_code,
             )
         )
 
@@ -69,22 +68,21 @@ class OsmerSensor(
 
         sensor = coordinator.data.sensors[sensor_code]
         station = coordinator.data.station
+        sensor_config = MONITORED_SENSORS[sensor_code]
 
         self._attr_unique_id = (
             f"osmer_{station.id}_{sensor.code}"
         )
 
-        self._attr_name = (
-            MONITORED_SENSORS[sensor.code]["name"]
-        )
+        self._attr_name = sensor_config["name"]
 
         self._attr_native_unit_of_measurement = (
-            MONITORED_SENSORS[sensor.code]["unit"]
+            sensor_config["unit"]
         )
 
         self._attr_device_class = (
             self._get_device_class(
-                sensor.code,
+                sensor_code,
             )
         )
 
@@ -94,10 +92,9 @@ class OsmerSensor(
 
         self._attr_icon = (
             self._get_icon(
-                sensor.code,
+                sensor_code,
             )
         )
-
 
     @property
     def device_info(
@@ -123,7 +120,6 @@ class OsmerSensor(
             sw_version="0.1.2",
         )
 
-
     @property
     def native_value(
         self,
@@ -141,15 +137,13 @@ class OsmerSensor(
 
         return measure.value
 
-
     @property
     def extra_state_attributes(
         self,
     ) -> dict[str, Any]:
-        """Return extra attributes."""
+        """Return extra state attributes."""
 
         station = self.coordinator.data.station
-
         sensor = self.coordinator.data.sensors[
             self.sensor_code
         ]
@@ -175,7 +169,6 @@ class OsmerSensor(
             ),
         }
 
-
     @staticmethod
     def _get_device_class(
         code: str,
@@ -183,46 +176,21 @@ class OsmerSensor(
         """Return Home Assistant device class."""
 
         mapping = {
-
-            "T":
-                SensorDeviceClass.TEMPERATURE,
-
-            "U":
-                SensorDeviceClass.HUMIDITY,
-
-            "RR":
-                SensorDeviceClass.PRECIPITATION,
-
-            "P":
-                SensorDeviceClass.PRECIPITATION,
-
-            "P_1h":
-                SensorDeviceClass.PRECIPITATION,
-
-            "Prec_5_min":
-                SensorDeviceClass.PRECIPITATION,
-
-            "Prec_60_min":
-                SensorDeviceClass.PRECIPITATION,
-
-            "Prec_3_ore":
-                SensorDeviceClass.PRECIPITATION,
-
-            "Prec_6_ore":
-                SensorDeviceClass.PRECIPITATION,
-
-            "Prec_12_ore":
-                SensorDeviceClass.PRECIPITATION,
-
-            "Prec_24_ore":
-                SensorDeviceClass.PRECIPITATION,
-
-            "Prec_48_ore":
-                SensorDeviceClass.PRECIPITATION,
+            "T": SensorDeviceClass.TEMPERATURE,
+            "U": SensorDeviceClass.HUMIDITY,
+            "RR": SensorDeviceClass.PRECIPITATION,
+            "P": SensorDeviceClass.PRECIPITATION,
+            "P_1h": SensorDeviceClass.PRECIPITATION,
+            "Prec_5_min": SensorDeviceClass.PRECIPITATION,
+            "Prec_60_min": SensorDeviceClass.PRECIPITATION,
+            "Prec_3_ore": SensorDeviceClass.PRECIPITATION,
+            "Prec_6_ore": SensorDeviceClass.PRECIPITATION,
+            "Prec_12_ore": SensorDeviceClass.PRECIPITATION,
+            "Prec_24_ore": SensorDeviceClass.PRECIPITATION,
+            "Prec_48_ore": SensorDeviceClass.PRECIPITATION,
         }
 
         return mapping.get(code)
-
 
     @staticmethod
     def _get_icon(
@@ -231,54 +199,22 @@ class OsmerSensor(
         """Return sensor icon."""
 
         mapping = {
-
-            "T":
-                "mdi:thermometer",
-
-            "U":
-                "mdi:water-percent",
-
-            "IDRO":
-                "mdi:waves",
-
-            "RR":
-                "mdi:weather-rainy",
-
-            "P":
-                "mdi:weather-rainy",
-
-            "P_1h":
-                "mdi:weather-rainy",
-
-            "Prec_5_min":
-                "mdi:weather-rainy",
-
-            "Prec_60_min":
-                "mdi:weather-rainy",
-
-            "Prec_3_ore":
-                "mdi:weather-rainy",
-
-            "Prec_6_ore":
-                "mdi:weather-rainy",
-
-            "Prec_12_ore":
-                "mdi:weather-rainy",
-
-            "Prec_24_ore":
-                "mdi:weather-rainy",
-
-            "Prec_48_ore":
-                "mdi:weather-rainy",
-
-            "CAR":
-                "mdi:battery-charging",
-
-            "SCAR":
-                "mdi:battery-minus",
-
-            "STSpluv (RAW)":
-                "mdi:information-outline",
+            "T": "mdi:thermometer",
+            "U": "mdi:water-percent",
+            "IDRO": "mdi:waves",
+            "RR": "mdi:weather-rainy",
+            "P": "mdi:weather-rainy",
+            "P_1h": "mdi:weather-rainy",
+            "Prec_5_min": "mdi:weather-rainy",
+            "Prec_60_min": "mdi:weather-rainy",
+            "Prec_3_ore": "mdi:weather-rainy",
+            "Prec_6_ore": "mdi:weather-rainy",
+            "Prec_12_ore": "mdi:weather-rainy",
+            "Prec_24_ore": "mdi:weather-rainy",
+            "Prec_48_ore": "mdi:weather-rainy",
+            "CAR": "mdi:battery-charging",
+            "SCAR": "mdi:battery-minus",
+            "STSpluv (RAW)": "mdi:information-outline",
         }
 
         return mapping.get(
