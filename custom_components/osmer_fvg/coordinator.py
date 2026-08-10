@@ -1,11 +1,10 @@
-"""Data coordinator for OSMER FVG."""
+"""Coordinator for OSMER FVG integration."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from dataclasses import dataclass, field
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import (
@@ -14,142 +13,93 @@ from homeassistant.helpers.update_coordinator import (
 )
 
 from .api.client import OsmerApiClient
-from .api.exceptions import (
-    OsmerApiResponseError,
-    OsmerConnectionError,
-)
-from .api.models import (
-    Measure,
-    Sensor,
-    Station,
-)
-from .const import (
-    DEFAULT_SCAN_INTERVAL,
-    DOMAIN,
-    MONITORED_SENSORS,
-)
+from .api.models import Measure, OsmerForecastDay, Sensor, Station
+from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
+from .forecast_zone import get_osmer_zone
 
 _LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
 class OsmerData:
-    """Coordinator data."""
+    """Data stored in coordinator."""
 
     station: Station
     sensors: dict[str, Sensor]
     measures: dict[str, Measure]
+    forecasts: list[OsmerForecastDay] = field(default_factory=list)
 
 
-class OsmerDataUpdateCoordinator(
-    DataUpdateCoordinator[OsmerData],
-):
-    """Coordinator for OSMER weather data."""
+class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
+    """Data update coordinator for OSMER FVG."""
 
     def __init__(
         self,
         hass: HomeAssistant,
         client: OsmerApiClient,
         station_id: int,
-        enabled_sensors: list[str] | None = None,
+        enabled_sensors: list[str],
     ) -> None:
         """Initialize coordinator."""
 
-        self.client = client
-        self.station_id = station_id
-        self.enabled_sensors = enabled_sensors or []
-
         super().__init__(
             hass,
-            logger=_LOGGER,
+            _LOGGER,
             name=DOMAIN,
-            update_interval=timedelta(
-                seconds=DEFAULT_SCAN_INTERVAL,
-            ),
+            update_interval=DEFAULT_SCAN_INTERVAL,
         )
 
-    async def _async_fetch_measure(
-        self,
-        sensor: Sensor,
-        start_iso: str,
-        end_iso: str,
-    ) -> tuple[str, Measure | None]:
-        """Fetch measures for a single sensor asynchronously."""
-        try:
-            values = await self.client.get_measures(
-                station_id=self.station_id,
-                sensor_id=sensor.id,
-                start=start_iso,
-                end=end_iso,
-            )
-            if values:
-                return sensor.code, values[-1]
-        except (
-            OsmerConnectionError,
-            OsmerApiResponseError,
-        ) as err:
-            _LOGGER.warning(
-                "Unable to fetch %s: %s",
-                sensor.code,
-                err,
-            )
+        self.client = client
+        self.station_id = station_id
+        self.enabled_sensors = enabled_sensors
 
-        return sensor.code, None
-
-    async def _async_update_data(
-        self,
-    ) -> OsmerData:
-        """Fetch data from OSMER API."""
+    async def _async_update_data(self) -> OsmerData:
+        """Fetch data from OSMER FVG API."""
 
         try:
-            # Recupera dati stazione e lista sensori disponibili
-            station = await self.client.get_station(
-                self.station_id,
+            station = await self.client.get_station(self.station_id)
+            sensors = await self.client.get_sensors(self.station_id)
+
+            sensors_dict = {
+                sensor.code: sensor
+                for sensor in sensors
+                if sensor.code in self.enabled_sensors
+            }
+
+            measures_list = await asyncio.gather(
+                *[
+                    self.client.get_latest_measure(
+                        self.station_id,
+                        sensor,
+                    )
+                    for sensor in sensors_dict.values()
+                ],
+                return_exceptions=True,
             )
 
-            sensors_data = await self.client.get_sensors(
-                self.station_id,
+            measures_dict: dict[str, Measure] = {}
+
+            for sensor_code, measure in zip(
+                sensors_dict.keys(),
+                measures_list,
+            ):
+                if isinstance(measure, Measure):
+                    measures_dict[sensor_code] = measure
+
+            zone = get_osmer_zone(
+                station.latitude,
+                station.longitude,
+                station.altitude,
             )
 
-            sensors: dict[str, Sensor] = {}
-            target_sensors: list[Sensor] = []
-
-            for sensor in sensors_data:
-                if (
-                    sensor.code in MONITORED_SENSORS
-                    and sensor.code in self.enabled_sensors
-                ):
-                    sensors[sensor.code] = sensor
-                    target_sensors.append(sensor)
-
-            now = datetime.now(UTC)
-            start = now - timedelta(hours=3)
-            start_iso = start.isoformat()
-            end_iso = now.isoformat()
-
-            # Esegue tutte le chiamate API per le misurazioni in parallelo
-            tasks = [
-                self._async_fetch_measure(sensor, start_iso, end_iso)
-                for sensor in target_sensors
-            ]
-
-            results = await asyncio.gather(*tasks)
-
-            measures: dict[str, Measure] = {}
-            for code, measure in results:
-                if measure is not None:
-                    measures[code] = measure
+            forecasts = await self.client.get_forecasts(zone)
 
             return OsmerData(
                 station=station,
-                sensors=sensors,
-                measures=measures,
+                sensors=sensors_dict,
+                measures=measures_dict,
+                forecasts=forecasts,
             )
 
-        except (
-            OsmerConnectionError,
-            OsmerApiResponseError,
-        ) as err:
-            raise UpdateFailed(
-                f"Unable to fetch OSMER data: {err}",
-            ) from err
+        except Exception as err:
+            raise UpdateFailed(f"Error communicating with API: {err}") from err

@@ -1,5 +1,7 @@
 """Constants for OSMER FVG integration."""
 
+from datetime import timedelta
+
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorStateClass,
@@ -7,7 +9,7 @@ from homeassistant.components.sensor import (
 
 DOMAIN = "osmer_fvg"
 
-DEFAULT_SCAN_INTERVAL = 300
+DEFAULT_SCAN_INTERVAL = timedelta(seconds=300)
 
 BASE_URL = "https://monitor.protezionecivile.fvg.it/api"
 
@@ -28,7 +30,6 @@ MONITORED_SENSORS = {
         "unit": "%",
         "icon": "mdi:water-percent",
     },
-    # Precipitazioni (TOTAL_INCREASING per statistiche ed Energy/Weather dashboard)
     "RR": {
         "name": "Precipitazione",
         "device_class": SensorDeviceClass.PRECIPITATION,
@@ -99,7 +100,6 @@ MONITORED_SENSORS = {
         "unit": "mm",
         "icon": "mdi:weather-rainy",
     },
-    # Idrologia
     "IDRO": {
         "name": "Livello idrometrico",
         "device_class": None,
@@ -107,7 +107,6 @@ MONITORED_SENSORS = {
         "unit": "m",
         "icon": "mdi:waves",
     },
-    # Alimentazione stazione
     "CAR": {
         "name": "Corrente di carica",
         "device_class": SensorDeviceClass.CURRENT,
@@ -122,7 +121,6 @@ MONITORED_SENSORS = {
         "unit": "mA",
         "icon": "mdi:battery-minus",
     },
-    # Diagnostica
     "STSpluv (RAW)": {
         "name": "Stato pluviometro",
         "device_class": None,
@@ -131,3 +129,27 @@ MONITORED_SENSORS = {
         "icon": "mdi:information-outline",
     },
 }
+
+CONDITION_MAP = {
+    "sereno": "sunny",
+    "poco nuvoloso": "partlycloudy",
+    "variabile": "partlycloudy",
+    "nuvoloso": "cloudy",
+    "coperto": "cloudy",
+    "pioggia": "rainy",
+    "rovesci": "rainy",
+    "temporale": "lightning-rainy",
+    "temporali": "lightning-rainy",
+    "neve": "snowy",
+    "nevischio": "snowy",
+    "nebbia": "fog",
+}
+
+
+def map_osmer_condition(text: str) -> str:
+    """Map OSMER forecast condition text to Home Assistant condition string."""
+    text_lower = text.lower()
+    for key, ha_condition in CONDITION_MAP.items():
+        if key in text_lower:
+            return ha_condition
+    return "sunny"

@@ -8,11 +8,13 @@ from typing import Any
 
 import aiohttp
 
+from ..const import map_osmer_condition
 from .exceptions import (
+    OsmerApiError,
     OsmerApiResponseError,
     OsmerConnectionError,
 )
-from .models import Measure, Sensor, Station
+from .models import Measure, OsmerForecastDay, Sensor, Station
 from .parser import (
     parse_measure,
     parse_sensor,
@@ -32,6 +34,7 @@ class OsmerApiClient:
         session: aiohttp.ClientSession,
     ) -> None:
         """Initialize client."""
+
         self._session = session
 
     async def _get(
@@ -162,3 +165,29 @@ class OsmerApiClient:
             return None
 
         return measures[-1]
+
+    async def get_forecasts(
+        self,
+        zone: str,
+    ) -> list[OsmerForecastDay]:
+        """Return forecast for zone."""
+
+        try:
+            data = await self._get(f"/forecasts/{zone}")
+
+            if data.get("result") == "OK" and "forecasts" in data:
+                return [
+                    OsmerForecastDay(
+                        date=f["date"],
+                        condition=map_osmer_condition(f.get("condition", "")),
+                        temp_min=f.get("temp_min"),
+                        temp_max=f.get("temp_max"),
+                        precipitation_probability=f.get("precip_prob"),
+                        summary=f.get("summary"),
+                    )
+                    for f in data["forecasts"]
+                ]
+        except (OsmerApiError, KeyError, TypeError, ValueError) as err:
+            _LOGGER.debug("Forecast API unavailable for zone %s: %s", zone, err)
+
+        return []

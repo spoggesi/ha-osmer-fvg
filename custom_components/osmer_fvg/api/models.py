@@ -73,3 +73,15 @@ class Measure:
     longitude: float
 
     value: float | None
+
+
+@dataclass(frozen=True)
+class OsmerForecastDay:
+    """Daily forecast model from OSMER FVG."""
+
+    date: str
+    condition: str
+    temp_min: float | None
+    temp_max: float | None
+    precipitation_probability: int | None = None
+    summary: str | None = None

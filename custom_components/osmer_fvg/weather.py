@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from homeassistant.components.weather import (
+    Forecast,
     WeatherEntity,
+    WeatherEntityFeature,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -42,8 +44,11 @@ class OsmerWeatherEntity(WeatherEntity):
     _attr_native_pressure_unit = UnitOfPressure.HPA
     _attr_native_wind_speed_unit = UnitOfSpeed.KILOMETERS_PER_HOUR
 
+    _attr_supported_features = WeatherEntityFeature.FORECAST_DAILY
+
     def __init__(self, coordinator: OsmerDataUpdateCoordinator) -> None:
         """Initialize weather entity."""
+
         self.coordinator = coordinator
         station = coordinator.data.station
         self._attr_unique_id = f"osmer_{station.id}_weather"
@@ -51,6 +56,7 @@ class OsmerWeatherEntity(WeatherEntity):
     @property
     def device_info(self) -> DeviceInfo:
         """Return device information."""
+
         station = self.coordinator.data.station
 
         return DeviceInfo(
@@ -65,18 +71,21 @@ class OsmerWeatherEntity(WeatherEntity):
     @property
     def native_temperature(self) -> float | None:
         """Return current temperature."""
+
         measure = self.coordinator.data.measures.get("T")
         return measure.value if measure else None
 
     @property
     def humidity(self) -> float | None:
         """Return current humidity."""
+
         measure = self.coordinator.data.measures.get("U")
         return measure.value if measure else None
 
     @property
     def condition(self) -> str | None:
         """Return current weather condition based on rain sensor."""
+
         rain_measure = self.coordinator.data.measures.get(
             "Prec_5_min"
         ) or self.coordinator.data.measures.get("RR")
@@ -85,3 +94,23 @@ class OsmerWeatherEntity(WeatherEntity):
             return "rainy"
 
         return "sunny"
+
+    async def async_forecast_daily(self) -> list[Forecast] | None:
+        """Return daily forecast for the UI card."""
+
+        if not self.coordinator.data or not self.coordinator.data.forecasts:
+            return None
+
+        forecast_list: list[Forecast] = []
+
+        for item_f in self.coordinator.data.forecasts:
+            forecast_item: Forecast = {
+                "datetime": item_f.date,
+                "condition": item_f.condition,
+                "native_temperature": item_f.temp_max,
+                "native_templow": item_f.temp_min,
+                "precipitation_probability": item_f.precipitation_probability,
+            }
+            forecast_list.append(forecast_item)
+
+        return forecast_list

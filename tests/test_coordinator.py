@@ -47,18 +47,18 @@ async def test_coordinator_update(
         ]
     )
 
-    client.get_measures = AsyncMock(
-        return_value=[
-            Measure(
-                station_id=51,
-                sensor_id=2,
-                timestamp=None,
-                latitude=46.084672,
-                longitude=12.930306,
-                value=25.5,
-            )
-        ]
+    client.get_latest_measure = AsyncMock(
+        return_value=Measure(
+            station_id=51,
+            sensor_id=2,
+            timestamp=None,
+            latitude=46.084672,
+            longitude=12.930306,
+            value=25.5,
+        )
     )
+
+    client.get_forecasts = AsyncMock(return_value=[])
 
     coordinator = OsmerDataUpdateCoordinator(
         hass,
@@ -72,9 +72,6 @@ async def test_coordinator_update(
     await coordinator.async_refresh()
 
     assert coordinator.data is not None
-
-    assert coordinator.data.station.name == ("Dignano")
-
+    assert coordinator.data.station.name == "Dignano"
     assert "T" in coordinator.data.sensors
-
     assert coordinator.data.measures["T"].value == 25.5
