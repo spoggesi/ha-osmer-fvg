@@ -5,15 +5,17 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigFlowResult
+from homeassistant.core import callback
 
 from .api.exceptions import (
     OsmerApiResponseError,
     OsmerConnectionError,
 )
-from .const import DOMAIN
+from .const import DOMAIN, MONITORED_SENSORS
 from .flow.confirm import build_description_placeholders
 from .flow.context import FlowContext
 from .flow.entry import (
@@ -52,6 +54,14 @@ class OsmerFvgConfigFlow(
         self.loader: FlowLoader | None = None
 
         self.service: FlowService | None = None
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> config_entries.OptionsFlow:
+        """Create options flow handler."""
+        return OsmerFvgOptionsFlowHandler()
 
     async def _async_init_services(
         self,
@@ -136,12 +146,7 @@ class OsmerFvgConfigFlow(
             )
 
         if user_input is not None:
-            if (
-                user_input.get(
-                    "action",
-                )
-                == BACK_OPTION
-            ):
+            if user_input.get("action") == BACK_OPTION:
                 return await self.async_step_user()
 
             station_id = int(
@@ -199,12 +204,7 @@ class OsmerFvgConfigFlow(
             )
 
         if user_input is not None:
-            if (
-                user_input.get(
-                    "action",
-                )
-                == BACK_OPTION
-            ):
+            if user_input.get("action") == BACK_OPTION:
                 return await self.async_step_user()
 
             address = user_input.get(
@@ -267,12 +267,7 @@ class OsmerFvgConfigFlow(
             )
 
         if user_input is not None:
-            if (
-                user_input.get(
-                    "action",
-                )
-                == BACK_OPTION
-            ):
+            if user_input.get("action") == BACK_OPTION:
                 return await self.async_step_address()
 
             station_id = int(
@@ -341,12 +336,7 @@ class OsmerFvgConfigFlow(
         )
 
         if user_input is not None:
-            if (
-                user_input.get(
-                    "action",
-                )
-                == BACK_OPTION
-            ):
+            if user_input.get("action") == BACK_OPTION:
                 return await self.async_step_station()
 
             enabled = user_input.get(
@@ -400,12 +390,7 @@ class OsmerFvgConfigFlow(
         ]
 
         if user_input is not None:
-            if (
-                user_input.get(
-                    "action",
-                )
-                == BACK_OPTION
-            ):
+            if user_input.get("action") == BACK_OPTION:
                 return await self.async_step_sensors()
 
             return self.async_create_entry(
@@ -433,4 +418,40 @@ class OsmerFvgConfigFlow(
                 station,
                 selected_sensors,
             ),
+        )
+
+
+class OsmerFvgOptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle OSMER FVG options flow."""
+
+    async def async_step_init(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> ConfigFlowResult:
+        """Manage options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        current_enabled = self.config_entry.options.get(
+            "enabled_sensors",
+            self.config_entry.data.get("enabled_sensors", []),
+        )
+
+        sensor_options = {
+            code: f"{config['name']} ({code})"
+            for code, config in MONITORED_SENSORS.items()
+        }
+
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    "enabled_sensors",
+                    default=current_enabled,
+                ): cv.multi_select(sensor_options),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=schema,
         )

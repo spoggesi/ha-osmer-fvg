@@ -25,30 +25,25 @@ async def async_setup_entry(
 ) -> bool:
     """Set up OSMER FVG from a config entry."""
 
-    session = async_get_clientsession(
-        hass,
-    )
+    session = async_get_clientsession(hass)
+    client = OsmerApiClient(session)
 
-    client = OsmerApiClient(
-        session,
+    # Legge i sensori abilitati dalle opzioni se definite, altrimenti dai dati di configurazione
+    enabled_sensors = entry.options.get(
+        "enabled_sensors",
+        entry.data.get("enabled_sensors", []),
     )
 
     coordinator = OsmerDataUpdateCoordinator(
         hass,
         client,
         station_id=entry.data["station_id"],
-        enabled_sensors=entry.data.get(
-            "enabled_sensors",
-        ),
+        enabled_sensors=enabled_sensors,
     )
 
     await coordinator.async_config_entry_first_refresh()
 
-    hass.data.setdefault(
-        DOMAIN,
-        {},
-    )
-
+    hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
     await hass.config_entries.async_forward_entry_setups(
@@ -56,7 +51,18 @@ async def async_setup_entry(
         PLATFORMS,
     )
 
+    # Ascolta le modifiche alle opzioni per ricaricare l'integrazione
+    entry.async_on_unload(entry.add_update_listener(async_update_options))
+
     return True
+
+
+async def async_update_options(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+) -> None:
+    """Handle options update."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(
@@ -71,8 +77,6 @@ async def async_unload_entry(
     )
 
     if unload_ok:
-        hass.data[DOMAIN].pop(
-            entry.entry_id,
-        )
+        hass.data[DOMAIN].pop(entry.entry_id)
 
     return unload_ok

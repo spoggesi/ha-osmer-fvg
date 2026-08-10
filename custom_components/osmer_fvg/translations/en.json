@@ -1,0 +1,70 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "OSMER FVG Setup",
+        "description": "Choose how to find the weather station.",
+        "data": {
+          "selection_method": "Search method"
+        }
+      },
+      "station": {
+        "title": "Select Station",
+        "description": "Select an OSMER FVG weather station.",
+        "data": {
+          "station": "Station",
+          "action": "⬅️ Back"
+        }
+      },
+      "address": {
+        "title": "Search by Address",
+        "description": "Enter an address to find nearby weather stations.",
+        "data": {
+          "address": "Address",
+          "action": "⬅️ Back"
+        }
+      },
+      "nearest": {
+        "title": "Nearby Stations",
+        "description": "Stations found near the specified address.",
+        "data": {
+          "station": "Station",
+          "action": "⬅️ Back"
+        }
+      },
+      "sensors": {
+        "title": "Select Sensors",
+        "description": "Select which sensors to enable.",
+        "data": {
+          "enabled_sensors": "Available sensors",
+          "action": "⬅️ Back"
+        }
+      },
+      "confirm": {
+        "title": "Confirm Setup",
+        "description": "Review details before completing setup.",
+        "data": {
+          "action": "⬅️ Back"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to OSMER FVG service.",
+      "invalid_station": "The selected station is invalid."
+    },
+    "abort": {
+      "already_configured": "This station is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "OSMER FVG Options",
+        "description": "Enable or disable sensors for this station.",
+        "data": {
+          "enabled_sensors": "Enabled sensors"
+        }
+      }
+    }
+  }
+}
