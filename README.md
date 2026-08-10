@@ -9,7 +9,7 @@
   <img src="logo.png" width="250" alt="OSMER FVG Logo">
 </p>
 
-**OSMER FVG** è un'integrazione custom per **Home Assistant** che consente di monitorare i dati in tempo reale delle stazioni meteorologiche dell'**OSMER (Osservatorio Meteorologico Regionale del Friuli Venezia Giulia)**, attingendo direttamente dai dati pubblici della **Protezione Civile FVG**.
+**OSMER FVG** è un'integrazione custom per **Home Assistant** che consente di monitorare i dati in tempo reale e le previsioni delle stazioni meteorologiche dell'**OSMER (Osservatorio Meteorologico Regionale del Friuli Venezia Giulia)**, attingendo direttamente dai dati pubblici della **Protezione Civile FVG**.
 
 L'integrazione è totalmente gratuita e **non richiede account né API key**.
 
@@ -17,8 +17,9 @@ L'integrazione è totalmente gratuita e **non richiede account né API key**.
 
 ## 🌟 Funzionalità principali
 
-- 🌤️ **Entità Meteo Nativa (`weather`)**: Compatibilità immediata con le card Meteo di Home Assistant (temperatura, umidità, stato precipitazioni).
-- 📊 **Sensori Avanzati (`sensor`)**: Creazione automatica di entità per temperatura, umidità, precipitazioni accumulate (supporto alle statistiche a lungo termine HA) e livelli idrometrici.
+- 🌤️ **Entità Meteo Nativa (`weather`)**: Compatibilità immediata con le card Meteo di Home Assistant, completa di **previsioni giornaliere** calcolate sulla macro-zona della stazione (Monti, Alta Pianura, Bassa Pianura, Costa/Carso).
+- 📊 **Sensori Avanzati (`sensor`)**: Creazione automatica di entità per temperatura, umidità, precipitazioni accumulate (con supporto alle statistiche a lungo termine `total_increasing` di Home Assistant) e livelli idrometrici.
+- ⚙️ **Gestione Opzioni a Caldo (Options Flow)**: Aggiungi o rimuovi i sensori monitorati in qualsiasi momento tramite la schermata Opzioni dell'integrazione.
 - 📍 **Ricerca Stazione Intelligente**:
   - Selezione diretta da elenco completo con indicatore dei sensori attivi.
   - Ricerca tramite indirizzo con calcolo automatico delle stazioni più vicine in ordine di distanza.
@@ -45,7 +46,7 @@ L'integrazione è totalmente gratuita e **non richiede account né API key**.
 
 ---
 
-## ⚙️ Configurazione
+## ⚙️ Configurazione e Opzioni
 
 Dopo il riavvio:
 
@@ -53,6 +54,12 @@ Dopo il riavvio:
 2. Cerca **OSMER FVG**.
 3. Scegli se selezionare la stazione manualmente da elenco oppure tramite ricerca per indirizzo.
 4. Seleziona i sensori che desideri monitorare e completa la procedura guidata.
+
+### Modifica dei sensori monitorati
+Per modificare l'elenco dei sensori abilitati dopo l'installazione:
+1. Vai su **Impostazioni → Dispositivi e servizi → OSMER FVG**.
+2. Clicca sul pulsante **Opzioni**.
+3. Seleziona o deseleziona i sensori desiderati e salva.
 
 ---
 
@@ -63,7 +70,7 @@ Ogni stazione configurata crea un dispositivo dedicato in Home Assistant che rag
 ### Entità Meteo (`weather`)
 | Entità | Stato / Attributi |
 |---|---|
-| `weather.osmer_<station_id>` | Temperatura attuale, umidità e condizione meteo |
+| `weather.osmer_<station_id>` | Temperatura attuale, umidità, condizione meteo e **previsioni giornaliere (Forecast)** per la macro-zona della stazione |
 
 ### Sensori (`sensor`)
 | Categoria | Sensore | Unità | Note |
