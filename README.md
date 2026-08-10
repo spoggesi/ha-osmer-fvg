@@ -1,215 +1,98 @@
 # OSMER FVG - Home Assistant Integration
 
-![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Integration-blue)
-![HACS](https://img.shields.io/badge/HACS-Custom-orange)
-![Version](https://img.shields.io/github/v/release/spoggesi/ha-osmer-fvg)
-![License](https://img.shields.io/github/license/spoggesi/ha-osmer-fvg)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Integration-blue)](https://www.home-assistant.io/)
+[![HACS](https://img.shields.io/badge/HACS-Custom-orange)](https://hacs.xyz/)
+[![Tests](https://github.com/spoggesi/ha-osmer-fvg/actions/workflows/test.yaml/badge.svg)](https://github.com/spoggesi/ha-osmer-fvg/actions)
+[![Release](https://img.shields.io/github/v/release/spoggesi/ha-osmer-fvg)](https://github.com/spoggesi/ha-osmer-fvg/releases)
+[![License](https://img.shields.io/github/license/spoggesi/ha-osmer-fvg)](LICENSE)
 
 <p align="center">
-  <img src="logo.png" width="300">
+  <img src="logo.png" width="250" alt="OSMER FVG Logo">
 </p>
 
-## Descrizione
+**OSMER FVG** è un'integrazione custom per **Home Assistant** che consente di monitorare i dati in tempo reale delle stazioni meteorologiche dell'**OSMER (Osservatorio Meteorologico Regionale del Friuli Venezia Giulia)**, attingendo direttamente dai dati pubblici della **Protezione Civile FVG**.
 
-**OSMER FVG** è un'integrazione custom per **Home Assistant** che permette di monitorare le stazioni meteorologiche dell'
-
-**OSMER - Osservatorio Meteorologico Regionale del Friuli Venezia Giulia**
-
-integrando i dati pubblici forniti dalla **Protezione Civile Friuli Venezia Giulia**.
-
-L'integrazione non richiede account, API key o configurazioni esterne.
+L'integrazione è totalmente gratuita e **non richiede account né API key**.
 
 ---
 
-# Funzionalità
+## 🌟 Funzionalità principali
 
-## Selezione della stazione
-
-L'integrazione permette di configurare una stazione meteorologica tramite:
-
-- 📡 Selezione diretta dall'elenco delle stazioni disponibili
-- 📍 Ricerca tramite indirizzo
-- 📏 Individuazione automatica delle stazioni più vicine
-
-Durante la configurazione vengono mostrati:
-
-- nome della stazione
-- distanza dall'indirizzo selezionato
-- sensori disponibili
+- 🌤️ **Entità Meteo Nativa (`weather`)**: Compatibilità immediata con le card Meteo di Home Assistant (temperatura, umidità, stato precipitazioni).
+- 📊 **Sensori Avanzati (`sensor`)**: Creazione automatica di entità per temperatura, umidità, precipitazioni accumulate (supporto alle statistiche a lungo termine HA) e livelli idrometrici.
+- 📍 **Ricerca Stazione Intelligente**:
+  - Selezione diretta da elenco completo con indicatore dei sensori attivi.
+  - Ricerca tramite indirizzo con calcolo automatico delle stazioni più vicine in ordine di distanza.
+- ⚡ **Ottimizzata & Asincrona**: Chiamate alle API in parallelo tramite `asyncio` per aggiornamenti rapidi e leggeri.
+- 🛠️ **Diagnostica integrata**: Download dello stato di salute dell'integrazione direttamente dalla dashboard di Home Assistant.
 
 ---
 
-## Sensori supportati
+## 🚀 Installazione
 
-I sensori vengono creati automaticamente in base alle informazioni fornite dalla stazione OSMER selezionata.
+### Tramite HACS (Consigliata)
 
-Sensori attualmente supportati:
+1. Apri **Home Assistant** e accedi a **HACS → Integrazioni**.
+2. Clicca sui **tre puntini** in alto a destra e seleziona **Repository personalizzate**.
+3. Inserisci l'URL della repository: `https://github.com/spoggesi/ha-osmer-fvg`
+4. Seleziona la categoria **Integrazione** e clicca **Aggiungi**.
+5. Cerca **OSMER FVG**, clicca **Scarica** e infine riavvia Home Assistant.
 
-- 🌡️ Temperatura aria
-- 💧 Umidità relativa
-- 🌧️ Precipitazioni
-- 🌊 Livello idrometrico
-- 📊 Altri parametri disponibili dalle API OSMER
+### Installazione Manuale
 
-Durante la configurazione è possibile scegliere quali sensori creare.
-
----
-
-# Installazione
-
-## Installazione tramite HACS (consigliata)
-
-1. Aprire **Home Assistant**
-2. Andare su **HACS → Integrazioni**
-3. Cercare **OSMER FVG**
-4. Installare l'integrazione
-5. Riavviare Home Assistant
+1. Scarica l'ultima release o clona il repository.
+2. Copia la cartella `custom_components/osmer_fvg` all'interno della directory `config/custom_components/` della tua istanza di Home Assistant.
+3. Riavvia Home Assistant.
 
 ---
 
-## Installazione manuale
-
-1. Scaricare il repository:
-
-https://github.com/spoggesi/ha-osmer-fvg
-
-2. Copiare la cartella `custom_components/osmer_fvg` nella directory `config/custom_components/`.
-
-3. Riavviare Home Assistant.
-
----
-
-# Configurazione
+## ⚙️ Configurazione
 
 Dopo il riavvio:
 
-**Impostazioni → Dispositivi e servizi → Aggiungi integrazione → OSMER FVG**
-
-La configurazione guidata permette di scegliere il metodo preferito.
-
----
-
-# Selezione stazione
-
-## Selezione diretta
-
-È possibile scegliere direttamente una stazione dall'elenco disponibile.
-
-Esempio:
-
-- 🌡️ 💧 🌧️ Pordenone
-- 🌡️ 💧 Udine
-- 🌧️ Tarvisio
-
-Le icone indicano i sensori disponibili nella stazione.
+1. Vai su **Impostazioni → Dispositivi e servizi → Aggiungi integrazione**.
+2. Cerca **OSMER FVG**.
+3. Scegli se selezionare la stazione manualmente da elenco oppure tramite ricerca per indirizzo.
+4. Seleziona i sensori che desideri monitorare e completa la procedura guidata.
 
 ---
 
-## Ricerca tramite indirizzo
+## 📱 Piattaforme ed Entità create
 
-Inserendo un indirizzo come:
+Ogni stazione configurata crea un dispositivo dedicato in Home Assistant che raggruppa le seguenti entità:
 
-`Via Roma 1, Pordenone`
-
-l'integrazione calcola automaticamente le stazioni meteorologiche più vicine.
-
-Vengono mostrati:
-
-- nome della stazione
-- distanza stimata
-- sensori disponibili
-
----
-
-# Sensori creati
-
-Ogni stazione configurata crea un dispositivo Home Assistant contenente i sensori disponibili.
-
-Esempio:
-
-## OSMER Pordenone
-
-| Sensore | Descrizione |
+### Entità Meteo (`weather`)
+| Entità | Stato / Attributi |
 |---|---|
-| Temperatura | Temperatura dell'aria |
-| Umidità | Umidità relativa |
-| Pioggia | Precipitazione |
-| Precipitazione 24h | Accumulo ultime 24 ore |
-| Livello idrometrico | Altezza livello acqua |
+| `weather.osmer_<station_id>` | Temperatura attuale, umidità e condizione meteo |
+
+### Sensori (`sensor`)
+| Categoria | Sensore | Unità | Note |
+|---|---|---|---|
+| **Meteo Base** | Temperatura aria | °C | Sensore `measurement` |
+| | Umidità relativa | % | Sensore `measurement` |
+| **Precipitazioni** | Pioggia / Pluviometro | mm | Supporto `total_increasing` per statistiche |
+| | Pioggia oraria / 24h / 48h | mm | Accumuli storici fino a 48 ore |
+| **Idrologia** | Livello idrometrico | m | Monitoraggio fiumi e corsi d'acqua |
+| **Diagnostica** | Stato carica / alimentazione | mA / sts | Diagnostica della stazione remota |
 
 ---
 
-# Aggiornamento dati
+## 🌐 Origine dati e Requisiti
 
-I dati vengono aggiornati automaticamente tramite polling delle API pubbliche OSMER.
-
-Non sono necessari:
-
-- ❌ Account utente
-- ❌ API key
-- ❌ Configurazioni lato server
-
-È sufficiente una connessione internet attiva.
+- **Origine Dati**: Dati pubblici erogati dalla [Protezione Civile FVG - OSMER](https://monitor.protezionecivile.fvg.it).
+- **Requisiti**: Home Assistant >= 2024.1.0 e connessione internet attiva.
 
 ---
 
-# Origine dati
+## 🤝 Supporto e Contributi
 
-I dati provengono dal servizio pubblico:
-
-**OSMER FVG - Protezione Civile Friuli Venezia Giulia**
-
-https://monitor.protezionecivile.fvg.it
+Se riscontri problemi o hai idee per nuove funzionalità:
+- 🐛 [Segnala un bug o richiedi una funzionalità](https://github.com/spoggesi/ha-osmer-fvg/issues)
+- 🔀 Le *Pull Request* sono sempre le benvenute!
 
 ---
 
-# Diagnostica
+## 📄 Licenza
 
-L'integrazione supporta la diagnostica nativa di Home Assistant.
-
-Sono disponibili informazioni su:
-
-- stazione configurata
-- coordinate
-- sensori disponibili
-- ultimo aggiornamento dati
-- stato comunicazione API
-
----
-
-# Requisiti
-
-- Home Assistant >= 2024.1.0
-- Connessione internet attiva
-- Accesso alle API pubbliche OSMER FVG
-
----
-
-# Screenshot
-
-Gli screenshot dell'integrazione saranno aggiunti nelle prossime versioni.
-
----
-
-# Supporto
-
-Per segnalazioni, richieste o suggerimenti:
-
-https://github.com/spoggesi/ha-osmer-fvg/issues
-
----
-
-# Contributi
-
-Sono benvenuti:
-
-- segnalazioni di problemi
-- nuove funzionalità
-- miglioramenti del codice
-- supporto per nuovi sensori
-
----
-
-# Licenza
-
-Questo progetto è rilasciato sotto licenza **MIT**.
+Questo progetto è rilasciato sotto Licenza **MIT**. Consulta il file `LICENSE` per ulteriori dettagli.
