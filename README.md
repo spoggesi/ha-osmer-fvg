@@ -2,7 +2,6 @@
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Integration-blue)](https://www.home-assistant.io/)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange)](https://hacs.xyz/)
-[![Tests](https://github.com/spoggesi/ha-osmer-fvg/actions/workflows/test.yaml/badge.svg)](https://github.com/spoggesi/ha-osmer-fvg/actions)
 [![Release](https://img.shields.io/github/v/release/spoggesi/ha-osmer-fvg)](https://github.com/spoggesi/ha-osmer-fvg/releases)
 [![License](https://img.shields.io/github/license/spoggesi/ha-osmer-fvg)](LICENSE)
 

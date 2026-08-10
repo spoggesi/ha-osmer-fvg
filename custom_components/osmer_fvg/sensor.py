@@ -91,7 +91,7 @@ class OsmerSensor(
             manufacturer="OSMER FVG",
             model="Weather Station",
             configuration_url="https://monitor.protezionecivile.fvg.it",
-            sw_version="0.2.1",
+            sw_version="0.3.0",
         )
 
     @property
