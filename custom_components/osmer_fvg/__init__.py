@@ -15,8 +15,8 @@ from .coordinator import OsmerDataUpdateCoordinator
 
 PLATFORMS: list[Platform] = [
     Platform.SENSOR,
+    Platform.WEATHER,
 ]
-
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -70,7 +70,6 @@ async def async_unload_entry(
     )
 
     if unload_ok:
-
         hass.data[DOMAIN].pop(
             entry.entry_id,
         )
