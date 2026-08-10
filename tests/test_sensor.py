@@ -1,8 +1,9 @@
 """Tests for OSMER sensors."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
+from homeassistant.components.sensor import SensorEntityDescription
 from homeassistant.core import HomeAssistant
 
 from custom_components.osmer_fvg.api.models import (
@@ -10,6 +11,7 @@ from custom_components.osmer_fvg.api.models import (
     Sensor,
     Station,
 )
+from custom_components.osmer_fvg.const import MONITORED_SENSORS
 from custom_components.osmer_fvg.coordinator import (
     OsmerData,
 )
@@ -46,7 +48,7 @@ async def test_sensor_value(
     measure = Measure(
         station_id=209,
         sensor_id=2,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         latitude=45.874009,
         longitude=12.713078,
         value=35.2,
@@ -64,13 +66,24 @@ async def test_sensor_value(
         },
     )
 
+    sensor_config = MONITORED_SENSORS["T"]
+    description = SensorEntityDescription(
+        key="T",
+        name=sensor_config["name"],
+        native_unit_of_measurement=sensor_config["unit"],
+        device_class=sensor_config["device_class"],
+        state_class=sensor_config["state_class"],
+        icon=sensor_config["icon"],
+    )
+
     entity = OsmerSensor(
         coordinator,
         "T",
+        description,
     )
 
     assert entity.native_value == 35.2
 
-    assert entity.unique_id == ("osmer_209_T")
+    assert entity.unique_id == "osmer_209_T"
 
     assert entity.extra_state_attributes["station"] == "Zuiano"

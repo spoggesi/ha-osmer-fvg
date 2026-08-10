@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import (
@@ -67,12 +68,41 @@ class OsmerDataUpdateCoordinator(
             ),
         )
 
+    async def _async_fetch_measure(
+        self,
+        sensor: Sensor,
+        start_iso: str,
+        end_iso: str,
+    ) -> tuple[str, Measure | None]:
+        """Fetch measures for a single sensor asynchronously."""
+        try:
+            values = await self.client.get_measures(
+                station_id=self.station_id,
+                sensor_id=sensor.id,
+                start=start_iso,
+                end=end_iso,
+            )
+            if values:
+                return sensor.code, values[-1]
+        except (
+            OsmerConnectionError,
+            OsmerApiResponseError,
+        ) as err:
+            _LOGGER.warning(
+                "Unable to fetch %s: %s",
+                sensor.code,
+                err,
+            )
+
+        return sensor.code, None
+
     async def _async_update_data(
         self,
     ) -> OsmerData:
         """Fetch data from OSMER API."""
 
         try:
+            # Recupera dati stazione e lista sensori disponibili
             station = await self.client.get_station(
                 self.station_id,
             )
@@ -82,46 +112,33 @@ class OsmerDataUpdateCoordinator(
             )
 
             sensors: dict[str, Sensor] = {}
-            measures: dict[str, Measure] = {}
-
-            now = datetime.now(
-                timezone.utc,
-            )
-
-            start = now - timedelta(
-                hours=3,
-            )
+            target_sensors: list[Sensor] = []
 
             for sensor in sensors_data:
-                if sensor.code not in MONITORED_SENSORS:
-                    continue
+                if (
+                    sensor.code in MONITORED_SENSORS
+                    and sensor.code in self.enabled_sensors
+                ):
+                    sensors[sensor.code] = sensor
+                    target_sensors.append(sensor)
 
-                if sensor.code not in self.enabled_sensors:
-                    continue
+            now = datetime.now(UTC)
+            start = now - timedelta(hours=3)
+            start_iso = start.isoformat()
+            end_iso = now.isoformat()
 
-                sensors[sensor.code] = sensor
+            # Esegue tutte le chiamate API per le misurazioni in parallelo
+            tasks = [
+                self._async_fetch_measure(sensor, start_iso, end_iso)
+                for sensor in target_sensors
+            ]
 
-                try:
-                    values = await self.client.get_measures(
-                        station_id=self.station_id,
-                        sensor_id=sensor.id,
-                        start=start.isoformat(),
-                        end=now.isoformat(),
-                    )
+            results = await asyncio.gather(*tasks)
 
-                except (
-                    OsmerConnectionError,
-                    OsmerApiResponseError,
-                ) as err:
-                    _LOGGER.warning(
-                        "Unable to fetch %s: %s",
-                        sensor.code,
-                        err,
-                    )
-                    continue
-
-                if values:
-                    measures[sensor.code] = values[-1]
+            measures: dict[str, Measure] = {}
+            for code, measure in results:
+                if measure is not None:
+                    measures[code] = measure
 
             return OsmerData(
                 station=station,

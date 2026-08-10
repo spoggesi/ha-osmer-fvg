@@ -19,5 +19,5 @@
         }
     },
 
-    "postCreateCommand": "python -m pip install --upgrade pip && pip install aiohttp pytest pytest-asyncio pytest-cov ruff homeassistant"
+    "postCreateCommand": "python -m pip install --upgrade pip && pip install aiohttp pytest pytest-asyncio pytest-cov pytest-homeassistant-custom-component ruff homeassistant"
 }
