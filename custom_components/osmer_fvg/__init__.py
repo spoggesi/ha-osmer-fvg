@@ -18,6 +18,7 @@ PLATFORMS: list[Platform] = [
     Platform.WEATHER,
 ]
 
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,

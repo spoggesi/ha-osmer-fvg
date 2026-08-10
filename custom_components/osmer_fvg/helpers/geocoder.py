@@ -8,9 +8,7 @@ import aiohttp
 
 _LOGGER = logging.getLogger(__name__)
 
-NOMINATIM_URL = (
-    "https://nominatim.openstreetmap.org/search"
-)
+NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 
 
 class NominatimGeocoder:
@@ -30,10 +28,7 @@ class NominatimGeocoder:
     ) -> tuple[float, float] | None:
         """Return latitude and longitude."""
 
-        query = (
-            f"{address}, "
-            "Friuli Venezia Giulia, Italia"
-        )
+        query = f"{address}, Friuli Venezia Giulia, Italia"
 
         params = {
             "q": query,
@@ -57,13 +52,11 @@ class NominatimGeocoder:
                 headers=headers,
                 timeout=20,
             ) as response:
-
                 response.raise_for_status()
 
                 results = await response.json()
 
         except aiohttp.ClientError as err:
-
             _LOGGER.error(
                 "Geocoder error: %s",
                 err,

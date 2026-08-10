@@ -40,12 +40,9 @@ def station_label(
     else:
         sensor_text = ""
 
-
     extra = []
 
-
     if latitude is not None and longitude is not None:
-
         distance = distance_km(
             latitude,
             longitude,
@@ -53,42 +50,25 @@ def station_label(
             station.longitude,
         )
 
-        extra.append(
-            f"📏 {distance:.1f} km"
+        extra.append(f"📏 {distance:.1f} km")
+
+    if (
+        getattr(
+            station,
+            "altitude",
+            None,
         )
-
-
-    if getattr(
-        station,
-        "altitude",
-        None,
-    ) is not None:
-
-        extra.append(
-            f"⛰ {station.altitude} m"
-        )
-
+        is not None
+    ):
+        extra.append(f"⛰ {station.altitude} m")
 
     if sensors:
-
-        extra.append(
-            f"{len(sensors)} sensori"
-        )
-
+        extra.append(f"{len(sensors)} sensori")
 
     if extra:
+        return f"{sensor_text}{station.name} ({' | '.join(extra)})"
 
-        return (
-            f"{sensor_text}"
-            f"{station.name} "
-            f"({' | '.join(extra)})"
-        )
-
-
-    return (
-        f"{sensor_text}"
-        f"{station.name}"
-    )
+    return f"{sensor_text}{station.name}"
 
 
 def sensor_icon(
@@ -98,43 +78,19 @@ def sensor_icon(
 
     code = code.lower()
 
-
     if "temp" in code:
-
         return "🌡"
 
-
-    if (
-        "umid" in code
-        or "hum" in code
-    ):
-
+    if "umid" in code or "hum" in code:
         return "💧"
 
-
-    if (
-        "rain" in code
-        or "piogg" in code
-        or "prec" in code
-    ):
-
+    if "rain" in code or "piogg" in code or "prec" in code:
         return "🌧"
 
-
-    if (
-        "vento" in code
-        or "wind" in code
-    ):
-
+    if "vento" in code or "wind" in code:
         return "💨"
 
-
-    if (
-        "press" in code
-        or "baro" in code
-    ):
-
+    if "press" in code or "baro" in code:
         return "🔵"
-
 
     return "📊"

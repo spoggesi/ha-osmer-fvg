@@ -52,9 +52,7 @@ def build_address_selector() -> vol.Schema:
         {
             vol.Required(
                 "address",
-            ): TextSelector(
-                TextSelectorConfig()
-            )
+            ): TextSelector(TextSelectorConfig())
         }
     )
 
@@ -68,7 +66,6 @@ def build_station_selector(
     options: list[SelectOptionDict] = []
 
     for station in stations:
-
         options.append(
             SelectOptionDict(
                 value=str(station.id),
@@ -107,7 +104,6 @@ def build_nearest_station_selector(
     options: list[SelectOptionDict] = []
 
     for station in stations:
-
         options.append(
             SelectOptionDict(
                 value=str(station.id),
@@ -145,7 +141,6 @@ def build_sensor_selector(
     options: list[SelectOptionDict] = []
 
     for sensor in sensors:
-
         options.append(
             SelectOptionDict(
                 value=sensor.code,
@@ -159,10 +154,7 @@ def build_sensor_selector(
         {
             vol.Required(
                 "enabled_sensors",
-                default=[
-                    sensor.code
-                    for sensor in sensors
-                ],
+                default=[sensor.code for sensor in sensors],
             ): SelectSelector(
                 SelectSelectorConfig(
                     options=options,

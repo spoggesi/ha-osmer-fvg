@@ -36,7 +36,6 @@ class FlowLoader:
         """Return API client."""
 
         if self._client is None:
-
             self._client = OsmerApiClient(
                 async_get_clientsession(
                     self._hass,
@@ -66,9 +65,7 @@ class FlowLoader:
         stations = await self.get_stations()
 
         for station in stations:
-
             if station.id == station_id:
-
                 return station
 
         return None
@@ -80,10 +77,7 @@ class FlowLoader:
         """Return sensors for station."""
 
         if station.id in self._sensor_cache:
-
-            return self._sensor_cache[
-                station.id
-            ]
+            return self._sensor_cache[station.id]
 
         sensors = await self.client.get_sensors(
             station.id,
@@ -94,9 +88,7 @@ class FlowLoader:
             key=lambda sensor: sensor.name.casefold(),
         )
 
-        self._sensor_cache[
-            station.id
-        ] = sensors
+        self._sensor_cache[station.id] = sensors
 
         return sensors
 
@@ -107,7 +99,6 @@ class FlowLoader:
         """Populate sensor cache."""
 
         for station in stations:
-
             await self.get_sensors(
                 station,
             )

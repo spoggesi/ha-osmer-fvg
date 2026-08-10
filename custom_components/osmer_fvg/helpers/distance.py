@@ -21,12 +21,7 @@ def distance_km(
     lat1 = radians(lat1)
     lat2 = radians(lat2)
 
-    a = (
-        sin(dlat / 2) ** 2
-        + cos(lat1)
-        * cos(lat2)
-        * sin(dlon / 2) ** 2
-    )
+    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
 
     c = 2 * asin(sqrt(a))
 

@@ -11,7 +11,6 @@ from ..api.models import Sensor, Station
 class FlowContext:
     """Shared data used by the config flow."""
 
-
     #
     # Selection method
     #
@@ -21,8 +20,6 @@ class FlowContext:
 
     selection_method: str | None = None
 
-
-
     #
     # Stations
     #
@@ -31,15 +28,11 @@ class FlowContext:
         default_factory=list,
     )
 
-
-
     #
     # Selected station
     #
 
     station: Station | None = None
-
-
 
     #
     # Sensors of selected station
@@ -49,8 +42,6 @@ class FlowContext:
         default_factory=list,
     )
 
-
-
     #
     # Enabled sensors chosen by user
     #
@@ -58,8 +49,6 @@ class FlowContext:
     enabled_sensors: list[str] = field(
         default_factory=list,
     )
-
-
 
     #
     # Memory cache:
@@ -71,8 +60,6 @@ class FlowContext:
         default_factory=dict,
     )
 
-
-
     #
     # Persistent cache state
     #
@@ -81,15 +68,11 @@ class FlowContext:
 
     cache_expired: bool = False
 
-
-
     #
     # Address entered by user
     #
 
     address: str | None = None
-
-
 
     #
     # Coordinates returned by Nominatim
@@ -99,8 +82,6 @@ class FlowContext:
 
     longitude: float | None = None
 
-
-
     #
     # Nearest stations
     #
@@ -108,8 +89,6 @@ class FlowContext:
     nearest: list[Station] = field(
         default_factory=list,
     )
-
-
 
     def clear_selection(
         self,
@@ -121,8 +100,6 @@ class FlowContext:
         self.sensors.clear()
 
         self.enabled_sensors.clear()
-
-
 
     def clear_address(
         self,
@@ -136,8 +113,6 @@ class FlowContext:
         self.longitude = None
 
         self.nearest.clear()
-
-
 
     def reset(
         self,

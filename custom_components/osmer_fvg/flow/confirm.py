@@ -13,10 +13,7 @@ def build_description_placeholders(
 ) -> dict[str, Any]:
     """Return placeholders for the confirmation page."""
 
-    enabled = "\n".join(
-        f"✓ {sensor.name}"
-        for sensor in sensors
-    )
+    enabled = "\n".join(f"✓ {sensor.name}" for sensor in sensors)
 
     return {
         "station": station.name,

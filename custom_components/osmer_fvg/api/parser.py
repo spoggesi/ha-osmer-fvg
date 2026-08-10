@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from .models import Measure, Sensor, Station
 
@@ -42,7 +42,7 @@ def parse_measure(data: dict) -> Measure:
         data["dt"],
         "%Y-%m-%d %H:%M:%S",
     ).replace(
-        tzinfo=timezone.utc,
+        tzinfo=UTC,
     )
 
     return Measure(

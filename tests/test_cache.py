@@ -1,6 +1,6 @@
 """Tests for OSMER persistent cache."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 from custom_components.osmer_fvg.api.models import (
@@ -22,27 +22,17 @@ async def test_cache_save_and_load(
         hass,
     )
 
-
     cache.data = {
         "test": "value",
     }
 
-
     cache.store.async_save = AsyncMock()
-
 
     await cache.async_save()
 
-
     cache.store.async_save.assert_called_once()
 
-
-    saved_data = (
-        cache.store.async_save
-        .call_args
-        .args[0]
-    )
-
+    saved_data = cache.store.async_save.call_args.args[0]
 
     assert saved_data["test"] == "value"
 
@@ -51,38 +41,28 @@ async def test_cache_save_and_load(
     assert "updated" in saved_data
 
 
-
-
-
 async def test_cache_expired() -> None:
     """Test expired cache."""
 
     hass = MagicMock()
 
-
     cache = OsmerCache(
         hass,
     )
-
 
     cache.data = {
         "version": CACHE_VERSION,
         "updated": (
             datetime.now(
-                timezone.utc,
+                UTC,
             )
-            -
-            timedelta(
+            - timedelta(
                 days=31,
             )
         ).isoformat(),
     }
 
-
     assert cache.is_expired() is True
-
-
-
 
 
 async def test_cache_not_expired() -> None:
@@ -90,24 +70,18 @@ async def test_cache_not_expired() -> None:
 
     hass = MagicMock()
 
-
     cache = OsmerCache(
         hass,
     )
 
-
     cache.data = {
         "version": CACHE_VERSION,
         "updated": datetime.now(
-            timezone.utc,
+            UTC,
         ).isoformat(),
     }
 
-
     assert cache.is_expired() is False
-
-
-
 
 
 def test_cache_sensor_storage() -> None:
@@ -115,11 +89,9 @@ def test_cache_sensor_storage() -> None:
 
     hass = MagicMock()
 
-
     cache = OsmerCache(
         hass,
     )
-
 
     sensor = Sensor(
         id=1,
@@ -131,7 +103,6 @@ def test_cache_sensor_storage() -> None:
         status="O",
     )
 
-
     cache.set_sensors(
         51,
         [
@@ -139,23 +110,20 @@ def test_cache_sensor_storage() -> None:
         ],
     )
 
-
-    assert cache.has_sensors(
-        51,
-    ) is True
-
+    assert (
+        cache.has_sensors(
+            51,
+        )
+        is True
+    )
 
     sensors = cache.get_sensors(
         51,
     )
 
-
     assert len(sensors) == 1
 
     assert sensors[0].code == "T"
-
-
-
 
 
 def test_cache_sensor_missing() -> None:
@@ -163,26 +131,22 @@ def test_cache_sensor_missing() -> None:
 
     hass = MagicMock()
 
-
     cache = OsmerCache(
         hass,
     )
 
-
-    assert cache.has_sensors(
-        999,
-    ) is False
-
+    assert (
+        cache.has_sensors(
+            999,
+        )
+        is False
+    )
 
     sensors = cache.get_sensors(
         999,
     )
 
-
     assert sensors == []
-
-
-
 
 
 def test_cache_station_storage() -> None:
@@ -190,11 +154,9 @@ def test_cache_station_storage() -> None:
 
     hass = MagicMock()
 
-
     cache = OsmerCache(
         hass,
     )
-
 
     station = Station(
         id=51,
@@ -206,23 +168,17 @@ def test_cache_station_storage() -> None:
         status="N",
     )
 
-
     cache.set_stations(
         [
             station,
         ],
     )
 
-
     stations = cache.get_stations()
-
 
     assert len(stations) == 1
 
     assert stations[0].name == "Dignano"
-
-
-
 
 
 def test_cache_station_ids() -> None:
@@ -230,11 +186,9 @@ def test_cache_station_ids() -> None:
 
     hass = MagicMock()
 
-
     cache = OsmerCache(
         hass,
     )
-
 
     cache.data = {
         "stations": [
@@ -250,9 +204,7 @@ def test_cache_station_ids() -> None:
         ]
     }
 
-
     ids = cache.get_station_ids()
-
 
     assert ids == {
         51,

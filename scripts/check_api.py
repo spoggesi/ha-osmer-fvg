@@ -2,7 +2,7 @@
 
 import asyncio
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import aiohttp
@@ -45,7 +45,7 @@ async def main() -> None:
                 f"{sensor.id:3} | {sensor.code:12} | {sensor.name:30} | {sensor.unit}"
             )
 
-        end = datetime.now(timezone.utc)
+        end = datetime.now(UTC)
 
         start = end - timedelta(hours=3)
 

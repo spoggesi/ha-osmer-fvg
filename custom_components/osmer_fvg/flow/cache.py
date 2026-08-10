@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from homeassistant.core import HomeAssistant
@@ -17,11 +17,8 @@ CACHE_KEY = "osmer_fvg_cache"
 CACHE_TTL_DAYS = 30
 
 
-
 class OsmerCache:
     """Persistent cache handler."""
-
-
 
     def __init__(
         self,
@@ -35,10 +32,7 @@ class OsmerCache:
             CACHE_KEY,
         )
 
-
         self.data: dict[str, Any] = {}
-
-
 
     async def async_load(
         self,
@@ -47,16 +41,11 @@ class OsmerCache:
 
         stored = await self.store.async_load()
 
-
         if stored:
-
             self.data = stored
 
         else:
-
             self.data = {}
-
-
 
     async def async_save(
         self,
@@ -67,26 +56,18 @@ class OsmerCache:
 
         self.data["version"] = CACHE_VERSION
 
-
         await self.store.async_save(
             self.data,
         )
-
-
 
     def update_timestamp(
         self,
     ) -> None:
         """Update cache timestamp."""
 
-        self.data["updated"] = (
-            datetime.now(
-                timezone.utc,
-            )
-            .isoformat()
-        )
-
-
+        self.data["updated"] = datetime.now(
+            UTC,
+        ).isoformat()
 
     def is_expired(
         self,
@@ -99,45 +80,28 @@ class OsmerCache:
             )
             != CACHE_VERSION
         ):
-
             return True
-
-
 
         timestamp = self.data.get(
             "updated",
         )
 
-
         if not timestamp:
-
             return True
-
-
 
         updated = datetime.fromisoformat(
             timestamp,
         )
 
-
-        return (
-            datetime.now(
-                timezone.utc,
-            )
-            -
-            updated
-            >
-            timedelta(
-                days=CACHE_TTL_DAYS,
-            )
+        return datetime.now(
+            UTC,
+        ) - updated > timedelta(
+            days=CACHE_TTL_DAYS,
         )
-
-
 
     #
     # Stations
     #
-
 
     def get_stations(
         self,
@@ -149,13 +113,7 @@ class OsmerCache:
             [],
         )
 
-
-        return [
-            Station(**station)
-            for station in stations
-        ]
-
-
+        return [Station(**station) for station in stations]
 
     def set_stations(
         self,
@@ -163,29 +121,18 @@ class OsmerCache:
     ) -> None:
         """Store stations."""
 
-        self.data["stations"] = [
-            station.__dict__
-            for station in stations
-        ]
-
-
+        self.data["stations"] = [station.__dict__ for station in stations]
 
     def get_station_ids(
         self,
     ) -> set[int]:
         """Return cached station ids."""
 
-        return {
-            station.id
-            for station in self.get_stations()
-        }
-
-
+        return {station.id for station in self.get_stations()}
 
     #
     # Sensors
     #
-
 
     def get_sensors(
         self,
@@ -193,25 +140,15 @@ class OsmerCache:
     ) -> list[Sensor]:
         """Get cached sensors."""
 
-        sensors = (
-            self.data
-            .get(
-                "sensors",
-                {},
-            )
-            .get(
-                str(station_id),
-                [],
-            )
+        sensors = self.data.get(
+            "sensors",
+            {},
+        ).get(
+            str(station_id),
+            [],
         )
 
-
-        return [
-            Sensor(**sensor)
-            for sensor in sensors
-        ]
-
-
+        return [Sensor(**sensor) for sensor in sensors]
 
     def has_sensors(
         self,
@@ -219,15 +156,10 @@ class OsmerCache:
     ) -> bool:
         """Check if station sensors exist."""
 
-        return (
-            str(station_id)
-            in self.data.get(
-                "sensors",
-                {},
-            )
+        return str(station_id) in self.data.get(
+            "sensors",
+            {},
         )
-
-
 
     def set_sensors(
         self,
@@ -236,28 +168,14 @@ class OsmerCache:
     ) -> None:
         """Store sensors."""
 
-        if (
-            "sensors"
-            not in self.data
-        ):
-
+        if "sensors" not in self.data:
             self.data["sensors"] = {}
 
-
-
-        self.data["sensors"][
-            str(station_id)
-        ] = [
-            sensor.__dict__
-            for sensor in sensors
-        ]
-
-
+        self.data["sensors"][str(station_id)] = [sensor.__dict__ for sensor in sensors]
 
     #
     # Utility
     #
-
 
     def clear(
         self,

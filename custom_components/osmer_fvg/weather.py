@@ -27,9 +27,7 @@ async def async_setup_entry(
 ) -> None:
     """Set up OSMER weather entity."""
 
-    coordinator: OsmerDataUpdateCoordinator = hass.data[DOMAIN][
-        entry.entry_id
-    ]
+    coordinator: OsmerDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
 
     async_add_entities([OsmerWeatherEntity(coordinator)])
 

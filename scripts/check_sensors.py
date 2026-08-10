@@ -33,7 +33,6 @@ async def main() -> None:
     print("=" * 70)
 
     async with aiohttp.ClientSession() as session:
-
         client = OsmerApiClient(
             session,
         )
@@ -47,10 +46,7 @@ async def main() -> None:
             OsmerApiResponseError,
             OsmerConnectionError,
         ) as err:
-
-            print(
-                f"Errore recupero sensori: {err}"
-            )
+            print(f"Errore recupero sensori: {err}")
 
             return
 
@@ -59,7 +55,6 @@ async def main() -> None:
         seen: set[str] = set()
 
         for sensor in sensors:
-
             if sensor.code in seen:
                 continue
 
@@ -84,7 +79,6 @@ async def main() -> None:
         "w",
         encoding="utf-8",
     ) as file:
-
         await file.write(
             json.dumps(
                 exported,
@@ -94,25 +88,16 @@ async def main() -> None:
         )
 
     print()
-    print(
-        f"Sensori trovati: {len(exported)}"
-    )
+    print(f"Sensori trovati: {len(exported)}")
 
     print()
 
     for sensor in exported:
-
-        print(
-            f'{sensor["code"]:20} | '
-            f'{sensor["name"]:40} | '
-            f'{sensor["unit"]}'
-        )
+        print(f"{sensor['code']:20} | {sensor['name']:40} | {sensor['unit']}")
 
     print()
 
-    print(
-        f"Creato file: {OUTPUT_FILE}"
-    )
+    print(f"Creato file: {OUTPUT_FILE}")
 
 
 if __name__ == "__main__":
