@@ -1,4 +1,4 @@
-"""XML Parser for OSMER FVG official bulletin."""
+"""XML Parser for OSMER FVG dev bulletin XML."""
 
 from __future__ import annotations
 
@@ -11,78 +11,93 @@ from .models import OsmerForecastDay
 _LOGGER = logging.getLogger(__name__)
 
 
+def _parse_date(date_str: str) -> str:
+    """Convert DD-MM-YYYY to ISO YYYY-MM-DD."""
+    date_str = date_str.strip()
+    if "-" in date_str:
+        parts = date_str.split("-")
+        if len(parts) == 3 and len(parts[0]) == 2 and len(parts[2]) == 4:
+            return f"{parts[2]}-{parts[1]}-{parts[0]}"
+    return date_str
+
+
 def parse_osmer_forecast_xml(
     xml_content: str,
     target_zone: str,
 ) -> list[OsmerForecastDay]:
-    """Parse OSMER XML bulletin for the given forecast zone."""
+    """Parse OSMER dev XML bulletin for the given forecast zone."""
 
     forecasts: list[OsmerForecastDay] = []
+    clean_content = xml_content.strip()
+
+    if clean_content.startswith(("<!DOCTYPE", "<html")):
+        _LOGGER.debug("Received HTML response instead of XML")
+        return forecasts
 
     try:
-        root = ET.fromstring(xml_content)
+        root = ET.fromstring(clean_content)
     except ET.ParseError as err:
         _LOGGER.warning("Failed to parse OSMER XML bulletin: %s", err)
         return forecasts
 
-    # Cicla sui giorni previsionali presenti nel bollettino XML
-    for giorno_elem in root.findall(".//giorno"):
-        date_str = giorno_elem.findtext("data", "").strip()
+    scadenze = root.findall(".//scadenza")
 
-        if not date_str:
+    for scadenza in scadenze:
+        raw_date = scadenza.attrib.get("data_validita", "").strip()
+        if not raw_date:
             continue
 
-        # Cerca i dati specifici della macro-zona target (Z1, Z2, Z3, Z4)
-        zona_elem = None
-        for z in giorno_elem.findall(".//zona"):
-            if z.get("id") == target_zone or z.findtext("id") == target_zone:
-                zona_elem = z
+        iso_date = _parse_date(raw_date)
+
+        # Trova il nodo <zona> corrispondente a target_zone (es. nome="Z3")
+        zona_node = None
+        for z in scadenza.findall(".//zona"):
+            z_nome = z.attrib.get("nome", "")
+            if z_nome == target_zone or z.attrib.get("id") == target_zone:
+                zona_node = z
                 break
 
-        # Fallback sugli elementi generali del giorno se la zona non è specificata
-        node = zona_elem if zona_elem is not None else giorno_elem
+        if zona_node is None:
+            continue
 
-        condition_raw = (
-            node.findtext("simbolo", "")
-            or node.findtext("cielo", "")
-            or giorno_elem.findtext("simbolo", "")
+        # Estrazione della condizione e della sintesi
+        cond_text = (
+            zona_node.findtext("EVOLUZIONE12_DESCRIZIONE")
+            or zona_node.findtext("EVOLUZIONE24_DESCRIZIONE")
+            or zona_node.findtext("EVOLUZIONE00_DESCRIZIONE")
+            or zona_node.findtext("TESTO")
+            or ""
         )
+        condition = map_osmer_condition(cond_text)
+        summary = zona_node.findtext("TESTO") or cond_text or None
 
-        condition = map_osmer_condition(condition_raw)
+        # Estrazione temperature min/max
+        temp_min: float | None = None
+        temp_max: float | None = None
 
-        t_min_str = node.findtext("tmin") or giorno_elem.findtext("tmin")
-        t_max_str = node.findtext("tmax") or giorno_elem.findtext("tmax")
+        for elem in list(zona_node) + list(scadenza):
+            tag_upper = elem.tag.upper()
+            val_text = elem.text.strip() if elem.text else ""
+            if not val_text:
+                continue
 
-        try:
-            temp_min = float(t_min_str) if t_min_str is not None else None
-        except ValueError:
-            temp_min = None
+            try:
+                val_float = float(val_text)
+            except ValueError:
+                continue
 
-        try:
-            temp_max = float(t_max_str) if t_max_str is not None else None
-        except ValueError:
-            temp_max = None
-
-        precip_str = node.findtext("prob_precip") or giorno_elem.findtext("prob_precip")
-
-        try:
-            precip_prob = int(precip_str) if precip_str is not None else None
-        except ValueError:
-            precip_prob = None
-
-        summary = (
-            node.findtext("testo")
-            or node.findtext("evoluzione")
-            or giorno_elem.findtext("testo")
-        )
+            if "TMIN" in tag_upper or "MIN" in tag_upper:
+                temp_min = val_float
+            elif "TMAX" in tag_upper or "MAX" in tag_upper:
+                temp_max = val_float
 
         forecasts.append(
             OsmerForecastDay(
-                date=date_str,
+                date=iso_date,
                 condition=condition,
                 temp_min=temp_min,
                 temp_max=temp_max,
-                precipitation_probability=precip_prob,
+                precipitation_probability=None,
                 summary=summary,
             )
         )

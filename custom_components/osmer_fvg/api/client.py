@@ -24,7 +24,6 @@ from .xml_parser import parse_osmer_forecast_xml
 _LOGGER = logging.getLogger(__name__)
 
 BASE_URL = "https://monitor.protezionecivile.fvg.it/api"
-BULLETIN_XML_URL = "https://www.osmer.fvg.it/xml/bollettino.xml"
 
 
 class OsmerApiClient:
@@ -171,22 +170,46 @@ class OsmerApiClient:
         self,
         zone: str,
     ) -> list[OsmerForecastDay]:
-        """Return forecast for zone from OSMER XML bulletin."""
+        """Return forecast for zone from OSMER dev XML bulletin."""
 
-        try:
-            async with self._session.get(
-                BULLETIN_XML_URL,
-                timeout=20,
-            ) as response:
-                response.raise_for_status()
-                xml_text = await response.text()
-                return parse_osmer_forecast_xml(xml_text, zone)
+        now = datetime.now(UTC)
 
-        except (aiohttp.ClientError, OsmerApiError) as err:
-            _LOGGER.debug(
-                "Unable to fetch OSMER XML bulletin for zone %s: %s",
-                zone,
-                err,
-            )
+        # Genera gli URL per oggi, ieri e l'altro ieri come fallback
+        dates_to_try = [
+            now.strftime("%Y%m%d"),
+            (now - timedelta(days=1)).strftime("%Y%m%d"),
+            (now - timedelta(days=2)).strftime("%Y%m%d"),
+        ]
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) HomeAssistant-OSMER-FVG"
+        }
+
+        for date_str in dates_to_try:
+            url = f"https://dev.meteo.fvg.it/xml/previsioni/PW{date_str}.xml"
+            _LOGGER.debug("Attempting to fetch forecast XML from %s", url)
+
+            try:
+                async with self._session.get(
+                    url,
+                    headers=headers,
+                    timeout=10,
+                ) as response:
+                    if response.status == 200:
+                        xml_text = await response.text()
+                        forecasts = parse_osmer_forecast_xml(xml_text, zone)
+                        if forecasts:
+                            _LOGGER.debug(
+                                "Successfully loaded %d forecast days from %s",
+                                len(forecasts),
+                                url,
+                            )
+                            return forecasts
+            except (aiohttp.ClientError, OsmerApiError) as err:
+                _LOGGER.debug(
+                    "Unable to fetch OSMER XML bulletin from %s: %s",
+                    url,
+                    err,
+                )
 
         return []
