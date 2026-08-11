@@ -65,7 +65,7 @@ class OsmerWeatherEntity(WeatherEntity):
             manufacturer="OSMER FVG",
             model="Weather Station",
             configuration_url="https://monitor.protezionecivile.fvg.it",
-            sw_version="0.3.0",
+            sw_version="0.3.1",
         )
 
     @property
@@ -95,8 +95,8 @@ class OsmerWeatherEntity(WeatherEntity):
 
         return "sunny"
 
-    async def async_forecast_daily(self) -> list[Forecast]:
-        """Return daily forecast for the UI card."""
+    def _get_forecast_list(self) -> list[Forecast]:
+        """Build forecast items list."""
 
         if not self.coordinator.data or not self.coordinator.data.forecasts:
             return []
@@ -114,3 +114,18 @@ class OsmerWeatherEntity(WeatherEntity):
             forecast_list.append(forecast_item)
 
         return forecast_list
+
+    async def async_forecast_daily(self) -> list[Forecast]:
+        """Return daily forecast (legacy compatibility)."""
+
+        return self._get_forecast_list()
+
+    async def async_get_forecasts_response(
+        self, forecast_type: str
+    ) -> dict[str, list[Forecast]]:
+        """Return forecast response for HA 2024+ UI weather card."""
+
+        if forecast_type == "daily":
+            return {"daily": self._get_forecast_list()}
+
+        return {forecast_type: []}

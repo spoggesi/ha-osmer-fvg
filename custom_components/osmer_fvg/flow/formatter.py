@@ -24,16 +24,18 @@ def station_label(
     latitude: float | None = None,
     longitude: float | None = None,
 ) -> str:
-    """Return formatted station label."""
+    """Return formatted station label with unique sensor icons."""
 
     sensors = sensors or []
 
-    sensor_icons = "".join(
-        sensor_icon(
-            sensor.code,
-        )
-        for sensor in sensors
-    )
+    # Deduplica le icone per tipologia di sensore
+    unique_icons: list[str] = []
+    for sensor in sensors:
+        icon = sensor_icon(sensor.code)
+        if icon and icon not in unique_icons:
+            unique_icons.append(icon)
+
+    sensor_icons = "".join(unique_icons)
 
     if sensor_icons:
         sensor_text = f"{sensor_icons} "
