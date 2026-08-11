@@ -8,7 +8,6 @@ from typing import Any
 
 import aiohttp
 
-from ..const import map_osmer_condition
 from .exceptions import (
     OsmerApiError,
     OsmerApiResponseError,
@@ -173,34 +172,8 @@ class OsmerApiClient:
         self,
         zone: str,
     ) -> list[OsmerForecastDay]:
-        """Return forecast for zone using API or XML bulletin fallback."""
+        """Return forecast for zone directly from OSMER XML bulletin with 15-min RAM cache."""
 
-        # 1. Prova prima l'endpoint API REST standard
-        try:
-            data = await self._get(f"/forecasts/{zone}")
-
-            if data.get("result") == "OK" and data.get("forecasts"):
-                return [
-                    OsmerForecastDay(
-                        date=f["date"],
-                        condition=map_osmer_condition(f.get("condition", "")),
-                        temp_min=f.get("temp_min"),
-                        temp_max=f.get("temp_max"),
-                        precipitation_probability=f.get("precip_prob"),
-                        summary=f.get("summary"),
-                    )
-                    for f in data["forecasts"]
-                ]
-        except (
-            OsmerApiError,
-            OsmerConnectionError,
-            KeyError,
-            TypeError,
-            ValueError,
-        ) as err:
-            _LOGGER.debug("REST Forecast API unavailable for zone %s: %s", zone, err)
-
-        # 2. Fallback: Bollettino XML da dev.meteo.fvg.it con cache RAM di 15 min
         now = datetime.now(UTC)
 
         if (
