@@ -37,9 +37,7 @@ async def async_setup_entry(
     async_add_entities([OsmerWeatherEntity(coordinator)])
 
 
-class OsmerWeatherEntity(
-    CoordinatorEntity[OsmerDataUpdateCoordinator], WeatherEntity
-):
+class OsmerWeatherEntity(CoordinatorEntity[OsmerDataUpdateCoordinator], WeatherEntity):
     """Representation of an OSMER weather entity."""
 
     _attr_has_entity_name = True
@@ -126,13 +124,9 @@ class OsmerWeatherEntity(
             if "T" not in date_str:
                 date_str = f"{date_str}T12:00:00+00:00"
 
-            max_temp = (
-                item_f.temp_max if item_f.temp_max is not None else current_temp
-            )
+            max_temp = item_f.temp_max if item_f.temp_max is not None else current_temp
             min_temp = (
-                item_f.temp_min
-                if item_f.temp_min is not None
-                else (current_temp - 4.0)
+                item_f.temp_min if item_f.temp_min is not None else (current_temp - 4.0)
             )
 
             forecast_item: Forecast = {
