@@ -68,7 +68,7 @@ class OsmerWeatherEntity(CoordinatorEntity[OsmerDataUpdateCoordinator], WeatherE
             manufacturer="OSMER FVG",
             model="Weather Station",
             configuration_url="https://monitor.protezionecivile.fvg.it",
-            sw_version="0.3.3",
+            sw_version="0.3.4",
         )
 
     @property
