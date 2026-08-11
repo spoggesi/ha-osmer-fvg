@@ -9,7 +9,7 @@ from homeassistant.components.sensor import (
 
 DOMAIN = "osmer_fvg"
 
-DEFAULT_SCAN_INTERVAL = timedelta(seconds=300)
+DEFAULT_SCAN_INTERVAL = timedelta(minutes=15)
 
 BASE_URL = "https://monitor.protezionecivile.fvg.it/api"
 

@@ -91,7 +91,7 @@ class OsmerWeatherEntity(CoordinatorEntity[OsmerDataUpdateCoordinator], WeatherE
 
     @property
     def condition(self) -> str | None:
-        """Return current weather condition based on rain sensor."""
+        """Return current weather condition based on rain sensor or forecast."""
 
         if not self.coordinator.data or not self.coordinator.data.measures:
             return "sunny"
@@ -102,6 +102,9 @@ class OsmerWeatherEntity(CoordinatorEntity[OsmerDataUpdateCoordinator], WeatherE
 
         if rain_measure and rain_measure.value is not None and rain_measure.value > 0:
             return "rainy"
+
+        if self.coordinator.data.forecasts:
+            return self.coordinator.data.forecasts[0].condition or "sunny"
 
         return "sunny"
 
@@ -140,8 +143,14 @@ class OsmerWeatherEntity(CoordinatorEntity[OsmerDataUpdateCoordinator], WeatherE
 
         return forecast_list
 
+    @property
+    def forecast(self) -> list[Forecast] | None:
+        """Return daily forecast list for legacy weather cards."""
+
+        return self._get_forecast_list()
+
     async def async_forecast_daily(self) -> list[Forecast]:
-        """Return daily forecast (legacy)."""
+        """Return daily forecast (legacy service)."""
 
         return self._get_forecast_list()
 
