@@ -17,6 +17,7 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import OsmerDataUpdateCoordinator
@@ -34,7 +35,7 @@ async def async_setup_entry(
     async_add_entities([OsmerWeatherEntity(coordinator)])
 
 
-class OsmerWeatherEntity(WeatherEntity):
+class OsmerWeatherEntity(CoordinatorEntity[OsmerDataUpdateCoordinator], WeatherEntity):
     """Representation of an OSMER weather entity."""
 
     _attr_has_entity_name = True
@@ -49,7 +50,7 @@ class OsmerWeatherEntity(WeatherEntity):
     def __init__(self, coordinator: OsmerDataUpdateCoordinator) -> None:
         """Initialize weather entity."""
 
-        self.coordinator = coordinator
+        super().__init__(coordinator)
         station = coordinator.data.station
         self._attr_unique_id = f"osmer_{station.id}_weather"
 
@@ -72,6 +73,9 @@ class OsmerWeatherEntity(WeatherEntity):
     def native_temperature(self) -> float | None:
         """Return current temperature."""
 
+        if not self.coordinator.data or not self.coordinator.data.measures:
+            return None
+
         measure = self.coordinator.data.measures.get("T")
         return measure.value if measure else None
 
@@ -79,12 +83,18 @@ class OsmerWeatherEntity(WeatherEntity):
     def humidity(self) -> float | None:
         """Return current humidity."""
 
+        if not self.coordinator.data or not self.coordinator.data.measures:
+            return None
+
         measure = self.coordinator.data.measures.get("U")
         return measure.value if measure else None
 
     @property
     def condition(self) -> str | None:
         """Return current weather condition based on rain sensor."""
+
+        if not self.coordinator.data or not self.coordinator.data.measures:
+            return "sunny"
 
         rain_measure = self.coordinator.data.measures.get(
             "Prec_5_min"
@@ -105,12 +115,10 @@ class OsmerWeatherEntity(WeatherEntity):
         current_temp = self.native_temperature or 20.0
 
         for item_f in self.coordinator.data.forecasts:
-            # Formattazione ISO 8601 a Mezzogiorno UTC (Standard Home Assistant per Daily Forecast)
             date_str = item_f.date
             if "T" not in date_str:
                 date_str = f"{date_str}T12:00:00+00:00"
 
-            # Temperature di fallback per evitare float nulli nel frontend
             max_temp = item_f.temp_max if item_f.temp_max is not None else current_temp
             min_temp = (
                 item_f.temp_min if item_f.temp_min is not None else (current_temp - 4.0)

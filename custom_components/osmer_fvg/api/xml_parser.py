@@ -1,4 +1,4 @@
-"""XML Parser for OSMER FVG dev bulletin XML."""
+"""XML Parser for OSMER FVG bulletin XML."""
 
 from __future__ import annotations
 
@@ -9,6 +9,25 @@ from ..const import map_osmer_condition
 from .models import OsmerForecastDay
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _parse_temp_value(val_str: str) -> float | None:
+    """Parse temperature value or temperature range string (e.g. '20/23' -> 21.5)."""
+    if not val_str or val_str.lower() in ("n.d.", "-"):
+        return None
+    val_str = val_str.strip()
+    if "/" in val_str:
+        parts = val_str.split("/")
+        try:
+            floats = [float(p.strip()) for p in parts if p.strip()]
+            if floats:
+                return sum(floats) / len(floats)
+        except ValueError:
+            return None
+    try:
+        return float(val_str)
+    except ValueError:
+        return None
 
 
 def _parse_date(date_str: str) -> str:
@@ -29,7 +48,7 @@ def parse_osmer_forecast_xml(
     xml_content: str,
     target_zone: str,
 ) -> list[OsmerForecastDay]:
-    """Parse OSMER dev XML bulletin for the given forecast zone."""
+    """Parse OSMER XML bulletin for the given forecast zone."""
 
     forecasts: list[OsmerForecastDay] = []
     clean_content = xml_content.strip()
@@ -44,24 +63,17 @@ def parse_osmer_forecast_xml(
         _LOGGER.warning("Failed to parse OSMER XML bulletin: %s", err)
         return forecasts
 
-    clean_target = str(target_zone).strip().upper().replace("Z", "")
+    clean_num = str(target_zone).strip().upper().replace("Z", "").replace("F", "")
 
-    day_nodes = (
-        root.findall(".//scadenza")
-        or root.findall(".//previsione")
-        or root.findall(".//giorno")
-        or root.findall(".//day")
-    )
+    scadenze = root.findall(".//scadenza")
+    if not scadenze:
+        scadenze = [root]
 
-    if not day_nodes:
-        day_nodes = [root]
-
-    for day in day_nodes:
+    for scadenza in scadenze:
         raw_date = (
-            day.attrib.get("data_validita")
-            or day.attrib.get("data")
-            or day.findtext("data")
-            or day.findtext("date")
+            scadenza.attrib.get("data_validita")
+            or scadenza.attrib.get("data")
+            or scadenza.findtext("data")
             or ""
         ).strip()
 
@@ -70,79 +82,65 @@ def parse_osmer_forecast_xml(
 
         iso_date = _parse_date(raw_date)
 
-        zona_node = None
-        for z in day.findall(".//zona") or day.findall(".//zone"):
-            z_nome = (
-                str(
-                    z.attrib.get("nome")
-                    or z.attrib.get("name")
-                    or z.findtext("nome")
-                    or ""
-                )
-                .strip()
-                .upper()
-                .replace("Z", "")
-            )
-            z_id = (
-                str(
-                    z.attrib.get("id") or z.attrib.get("code") or z.findtext("id") or ""
-                )
-                .strip()
-                .upper()
-                .replace("Z", "")
-            )
-
-            if (
-                z_nome == clean_target
-                or z_id == clean_target
-                or clean_target in (z_nome, z_id)
-            ):
-                zona_node = z
-                break
-
-        if zona_node is None:
-            continue
-
-        cond_text = (
-            zona_node.findtext("EVOLUZIONE12_DESCRIZIONE")
-            or zona_node.findtext("EVOLUZIONE24_DESCRIZIONE")
-            or zona_node.findtext("EVOLUZIONE00_DESCRIZIONE")
-            or zona_node.findtext("SIMBOLO")
-            or zona_node.findtext("CONDIZIONE")
-            or zona_node.findtext("TESTO")
-            or ""
-        )
-        condition = map_osmer_condition(cond_text)
-        summary = zona_node.findtext("TESTO") or cond_text or None
-
+        condition_text = ""
+        summary_text: str | None = None
         temp_min: float | None = None
         temp_max: float | None = None
+        precip_prob: int | None = None
 
-        for elem in zona_node.iter():
-            tag_upper = elem.tag.upper()
-            val_text = elem.text.strip() if elem.text else ""
-            if not val_text:
-                continue
+        # Combina le informazioni dei nodi zona (es. Z3 ed F3 condividono il numero "3")
+        for z in scadenza.findall(".//zona"):
+            z_nome = str(z.attrib.get("nome", "")).strip().upper()
+            z_id = str(z.attrib.get("id", "")).strip().upper()
+            z_clean = z_nome.replace("Z", "").replace("F", "")
 
-            try:
-                val_float = float(val_text)
-            except ValueError:
-                continue
+            if (
+                z_clean == clean_num
+                or z_id == clean_num
+                or z_nome == target_zone.upper()
+            ):
+                # Estrazione condizione e testo sintesi
+                cond = (
+                    z.findtext("EVOLUZIONE12_DESCRIZIONE")
+                    or z.findtext("EVOLUZIONE24_DESCRIZIONE")
+                    or z.findtext("EVOLUZIONE00_DESCRIZIONE")
+                    or z.findtext("CIELO_DESCRIZIONE")
+                    or ""
+                )
+                if cond and not condition_text:
+                    condition_text = cond
 
-            if ("TMIN" in tag_upper or "MIN" in tag_upper) and temp_min is None:
-                temp_min = val_float
-            elif ("TMAX" in tag_upper or "MAX" in tag_upper) and temp_max is None:
-                temp_max = val_float
+                txt = z.findtext("TESTO")
+                if txt and not summary_text:
+                    summary_text = txt
 
-        forecasts.append(
-            OsmerForecastDay(
-                date=iso_date,
-                condition=condition,
-                temp_min=temp_min,
-                temp_max=temp_max,
-                precipitation_probability=None,
-                summary=summary,
+                # Estrazione temperature (es. TMIN "20/23")
+                tmin_txt = z.findtext("TMIN")
+                if tmin_txt and temp_min is None:
+                    temp_min = _parse_temp_value(tmin_txt)
+
+                tmax_txt = z.findtext("TMAX")
+                if tmax_txt and temp_max is None:
+                    temp_max = _parse_temp_value(tmax_txt)
+
+                # Estrazione probabilità di precipitazione
+                prob_txt = z.findtext("PROBABILITAPRECIPITAZIONI")
+                if prob_txt and precip_prob is None:
+                    try:
+                        precip_prob = int(prob_txt)
+                    except ValueError:
+                        pass
+
+        if condition_text or temp_min is not None or temp_max is not None:
+            forecasts.append(
+                OsmerForecastDay(
+                    date=iso_date,
+                    condition=map_osmer_condition(condition_text),
+                    temp_min=temp_min,
+                    temp_max=temp_max,
+                    precipitation_probability=precip_prob,
+                    summary=summary_text,
+                )
             )
-        )
 
     return forecasts
