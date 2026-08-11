@@ -181,6 +181,7 @@ class OsmerApiClient:
             and self._xml_cache_time
             and (now - self._xml_cache_time) < timedelta(minutes=15)
         ):
+            _LOGGER.debug("Using cached forecast XML bulletin for zone %s", zone)
             forecasts = parse_osmer_forecast_xml(self._xml_cache, zone)
             if forecasts:
                 return forecasts
@@ -200,10 +201,12 @@ class OsmerApiClient:
 
         for date_str in dates_to_try:
             url = f"https://dev.meteo.fvg.it/xml/previsioni/PW{date_str}.xml"
+            _LOGGER.debug("Fetching forecast XML bulletin from %s", url)
             try:
                 async with self._session.get(
                     url, headers=headers, timeout=5
                 ) as response:
+                    _LOGGER.debug("HTTP status %s from %s", response.status, url)
                     if response.status == 200:
                         xml_text = await response.text()
                         if not xml_text.strip().startswith(("<!DOCTYPE", "<html")):
@@ -211,6 +214,12 @@ class OsmerApiClient:
                             self._xml_cache_time = now
 
                             forecasts = parse_osmer_forecast_xml(xml_text, zone)
+                            _LOGGER.debug(
+                                "Parsed %d forecast days for zone %s from %s",
+                                len(forecasts),
+                                zone,
+                                url,
+                            )
                             if forecasts:
                                 return forecasts
             except (
@@ -220,4 +229,5 @@ class OsmerApiClient:
             ) as err:
                 _LOGGER.debug("Error fetching XML forecast from %s: %s", url, err)
 
+        _LOGGER.warning("Could not retrieve forecast days for zone %s", zone)
         return []

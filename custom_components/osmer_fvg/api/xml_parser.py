@@ -34,8 +34,8 @@ def parse_osmer_forecast_xml(
     forecasts: list[OsmerForecastDay] = []
     clean_content = xml_content.strip()
 
-    if clean_content.startswith(("<!DOCTYPE", "<html")):
-        _LOGGER.debug("Received HTML response instead of XML")
+    if not clean_content or clean_content.startswith(("<!DOCTYPE", "<html")):
+        _LOGGER.debug("Received invalid XML or HTML response")
         return forecasts
 
     try:
@@ -45,21 +45,58 @@ def parse_osmer_forecast_xml(
         return forecasts
 
     clean_target = str(target_zone).strip().upper().replace("Z", "")
-    scadenze = root.findall(".//scadenza")
 
-    for scadenza in scadenze:
-        raw_date = scadenza.attrib.get("data_validita", "").strip()
+    day_nodes = (
+        root.findall(".//scadenza")
+        or root.findall(".//previsione")
+        or root.findall(".//giorno")
+        or root.findall(".//day")
+    )
+
+    if not day_nodes:
+        day_nodes = [root]
+
+    for day in day_nodes:
+        raw_date = (
+            day.attrib.get("data_validita")
+            or day.attrib.get("data")
+            or day.findtext("data")
+            or day.findtext("date")
+            or ""
+        ).strip()
+
         if not raw_date:
             continue
 
         iso_date = _parse_date(raw_date)
 
-        # Trova il nodo <zona> corrispondente a target_zone
         zona_node = None
-        for z in scadenza.findall(".//zona"):
-            z_nome = z.attrib.get("nome", "").strip().upper().replace("Z", "")
-            z_id = z.attrib.get("id", "").strip().upper().replace("Z", "")
-            if z_nome == clean_target or z_id == clean_target:
+        for z in day.findall(".//zona") or day.findall(".//zone"):
+            z_nome = (
+                str(
+                    z.attrib.get("nome")
+                    or z.attrib.get("name")
+                    or z.findtext("nome")
+                    or ""
+                )
+                .strip()
+                .upper()
+                .replace("Z", "")
+            )
+            z_id = (
+                str(
+                    z.attrib.get("id") or z.attrib.get("code") or z.findtext("id") or ""
+                )
+                .strip()
+                .upper()
+                .replace("Z", "")
+            )
+
+            if (
+                z_nome == clean_target
+                or z_id == clean_target
+                or clean_target in (z_nome, z_id)
+            ):
                 zona_node = z
                 break
 
@@ -70,6 +107,8 @@ def parse_osmer_forecast_xml(
             zona_node.findtext("EVOLUZIONE12_DESCRIZIONE")
             or zona_node.findtext("EVOLUZIONE24_DESCRIZIONE")
             or zona_node.findtext("EVOLUZIONE00_DESCRIZIONE")
+            or zona_node.findtext("SIMBOLO")
+            or zona_node.findtext("CONDIZIONE")
             or zona_node.findtext("TESTO")
             or ""
         )
@@ -79,7 +118,7 @@ def parse_osmer_forecast_xml(
         temp_min: float | None = None
         temp_max: float | None = None
 
-        for elem in list(zona_node) + list(scadenza):
+        for elem in zona_node.iter():
             tag_upper = elem.tag.upper()
             val_text = elem.text.strip() if elem.text else ""
             if not val_text:
