@@ -18,7 +18,7 @@ from .xml_parser import parse_osmer_forecast_xml
 
 _LOGGER = logging.getLogger(__name__)
 
-BASE_URL = "https://www.meteo.fvg.it/xml"
+BASE_URL = "https://dev.meteo.fvg.it/xml"
 
 
 class OsmerApiClient:
@@ -41,8 +41,13 @@ class OsmerApiClient:
             async with self._session.get(url, headers=headers, timeout=10) as response:
                 if response.status != 200:
                     raise OsmerApiResponseError(f"HTTP status error: {response.status}")
-                return await response.json()
-        except aiohttp.ClientError as err:
+                text = await response.text()
+                if text.strip().startswith(("<", "<!DOCTYPE", "<html")):
+                    raise OsmerApiResponseError(
+                        f"Received HTML response instead of JSON from {url}"
+                    )
+                return await response.json(content_type=None)
+        except (aiohttp.ClientError, OsmerApiResponseError) as err:
             raise OsmerConnectionError(
                 f"Connection error fetching {url}: {err}"
             ) from err

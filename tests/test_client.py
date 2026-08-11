@@ -1,5 +1,6 @@
 """Tests for the OSMER API client."""
 
+import json
 from unittest.mock import AsyncMock, MagicMock
 
 import aiohttp
@@ -24,6 +25,7 @@ async def test_get_stations() -> None:
 
     mock_response = MagicMock()
     mock_response.status = 200
+    mock_response.text = AsyncMock(return_value=json.dumps(response_data))
     mock_response.json = AsyncMock(return_value=response_data)
 
     session = MagicMock(spec=aiohttp.ClientSession)
