@@ -95,11 +95,11 @@ class OsmerWeatherEntity(WeatherEntity):
 
         return "sunny"
 
-    async def async_forecast_daily(self) -> list[Forecast] | None:
+    async def async_forecast_daily(self) -> list[Forecast]:
         """Return daily forecast for the UI card."""
 
         if not self.coordinator.data or not self.coordinator.data.forecasts:
-            return None
+            return []
 
         forecast_list: list[Forecast] = []
 

@@ -8,7 +8,6 @@ from typing import Any
 
 import aiohttp
 
-from ..const import map_osmer_condition
 from .exceptions import (
     OsmerApiError,
     OsmerApiResponseError,
@@ -20,10 +19,12 @@ from .parser import (
     parse_sensor,
     parse_station,
 )
+from .xml_parser import parse_osmer_forecast_xml
 
 _LOGGER = logging.getLogger(__name__)
 
 BASE_URL = "https://monitor.protezionecivile.fvg.it/api"
+BULLETIN_XML_URL = "https://www.osmer.fvg.it/xml/bollettino.xml"
 
 
 class OsmerApiClient:
@@ -170,24 +171,22 @@ class OsmerApiClient:
         self,
         zone: str,
     ) -> list[OsmerForecastDay]:
-        """Return forecast for zone."""
+        """Return forecast for zone from OSMER XML bulletin."""
 
         try:
-            data = await self._get(f"/forecasts/{zone}")
+            async with self._session.get(
+                BULLETIN_XML_URL,
+                timeout=20,
+            ) as response:
+                response.raise_for_status()
+                xml_text = await response.text()
+                return parse_osmer_forecast_xml(xml_text, zone)
 
-            if data.get("result") == "OK" and "forecasts" in data:
-                return [
-                    OsmerForecastDay(
-                        date=f["date"],
-                        condition=map_osmer_condition(f.get("condition", "")),
-                        temp_min=f.get("temp_min"),
-                        temp_max=f.get("temp_max"),
-                        precipitation_probability=f.get("precip_prob"),
-                        summary=f.get("summary"),
-                    )
-                    for f in data["forecasts"]
-                ]
-        except (OsmerApiError, KeyError, TypeError, ValueError) as err:
-            _LOGGER.debug("Forecast API unavailable for zone %s: %s", zone, err)
+        except (aiohttp.ClientError, OsmerApiError) as err:
+            _LOGGER.debug(
+                "Unable to fetch OSMER XML bulletin for zone %s: %s",
+                zone,
+                err,
+            )
 
         return []
