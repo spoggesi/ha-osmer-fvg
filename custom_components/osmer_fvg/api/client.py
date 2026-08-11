@@ -1,4 +1,4 @@
-"""API client for OSMER FVG weather data."""
+"""Client for the OSMER FVG API."""
 
 from __future__ import annotations
 
@@ -8,109 +8,201 @@ from typing import Any
 
 import aiohttp
 
+from ..const import map_osmer_condition
 from .exceptions import (
     OsmerApiError,
     OsmerApiResponseError,
     OsmerConnectionError,
 )
-from .models import OsmerForecastDay, Sensor, Station
+from .models import Measure, OsmerForecastDay, Sensor, Station
+from .parser import (
+    parse_measure,
+    parse_sensor,
+    parse_station,
+)
 from .xml_parser import parse_osmer_forecast_xml
 
 _LOGGER = logging.getLogger(__name__)
 
-BASE_URL = "https://dev.meteo.fvg.it/xml"
+BASE_URL = "https://monitor.protezionecivile.fvg.it/api"
 
 
 class OsmerApiClient:
-    """Client for OSMER FVG API."""
+    """Client for the OSMER API."""
 
-    def __init__(self, session: aiohttp.ClientSession) -> None:
-        """Initialize API client."""
+    def __init__(
+        self,
+        session: aiohttp.ClientSession,
+    ) -> None:
+        """Initialize client."""
+
         self._session = session
         self._xml_cache: str | None = None
         self._xml_cache_time: datetime | None = None
 
-    async def _get_json(self, url: str) -> Any:
-        """Fetch JSON data from URL."""
-        headers = {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) HomeAssistant-OSMER-FVG"
-            )
-        }
+    async def _get(
+        self,
+        endpoint: str,
+    ) -> dict[str, Any]:
+        """Execute GET request."""
+
+        url = f"{BASE_URL}{endpoint}"
+
+        _LOGGER.debug("GET %s", url)
+
         try:
-            async with self._session.get(url, headers=headers, timeout=10) as response:
-                if response.status != 200:
-                    raise OsmerApiResponseError(f"HTTP status error: {response.status}")
-                text = await response.text()
-                if text.strip().startswith(("<", "<!DOCTYPE", "<html")):
-                    raise OsmerApiResponseError(
-                        f"Received HTML response instead of JSON from {url}"
-                    )
-                return await response.json(content_type=None)
-        except (aiohttp.ClientError, OsmerApiResponseError) as err:
-            raise OsmerConnectionError(
-                f"Connection error fetching {url}: {err}"
-            ) from err
+            async with self._session.get(
+                url,
+                timeout=20,
+            ) as response:
+                response.raise_for_status()
+                return await response.json()
+
+        except aiohttp.ClientError as err:
+            raise OsmerConnectionError(f"Unable to connect to {url}") from err
 
     async def get_stations(self) -> list[Station]:
-        """Return list of stations."""
-        url = f"{BASE_URL}/stazioni.php"
-        data = await self._get_json(url)
+        """Return available stations."""
 
-        stations: list[Station] = []
-        for item in data:
-            try:
-                station = Station(
-                    id=int(item.get("id_stazione") or item.get("id")),
-                    name=str(item.get("nome_stazione") or item.get("name")),
-                    latitude=float(item.get("latitudine") or item.get("lat")),
-                    longitude=float(item.get("longitudine") or item.get("lon")),
-                    altitude=float(item.get("quota") or item.get("alt")),
-                    istat=int(item.get("istat", 0)),
-                    status=str(item.get("status", "N")),
-                )
-                stations.append(station)
-            except (KeyError, ValueError, TypeError) as err:
-                _LOGGER.debug("Skipping invalid station data: %s", err)
-                continue
+        data = await self._get("/stations")
 
-        return stations
+        if data.get("result") != "OK":
+            raise OsmerApiResponseError("Unexpected stations response")
 
-    async def get_station(self, station_id: int) -> Station:
-        """Return specific station by ID."""
+        stations = data.get("stations")
+
+        if stations is None:
+            raise OsmerApiResponseError("Missing stations")
+
+        return [parse_station(station) for station in stations]
+
+    async def get_station(
+        self,
+        station_id: int,
+    ) -> Station:
+        """Return a single station."""
+
         stations = await self.get_stations()
+
         for station in stations:
             if station.id == station_id:
                 return station
-        raise OsmerApiError(f"Station ID {station_id} not found")
 
-    async def get_sensors(self, station_id: int) -> list[Sensor]:
-        """Return sensors for a given station."""
-        url = f"{BASE_URL}/stazione.php?id={station_id}"
-        data = await self._get_json(url)
+        raise OsmerApiResponseError(f"Station {station_id} not found")
 
-        sensors: list[Sensor] = []
-        sensor_list = data.get("sensori", [])
-        for item in sensor_list:
-            try:
-                sensor = Sensor(
-                    id=int(item["id_sensore"]),
-                    code=item["codice_sensore"],
-                    name=item["nome_sensore"],
-                    unit=item.get("unita_misura", ""),
-                )
-                sensors.append(sensor)
-            except (KeyError, ValueError) as err:
-                _LOGGER.debug("Skipping invalid sensor data: %s", err)
-                continue
+    async def get_sensors(
+        self,
+        station_id: int,
+    ) -> list[Sensor]:
+        """Return sensors for station."""
 
-        return sensors
+        data = await self._get(f"/stations/{station_id}/sensors")
 
-    async def get_forecasts(self, zone: str) -> list[OsmerForecastDay]:
-        """Return forecast for zone from OSMER dev XML bulletin with RAM cache."""
+        if data.get("result") != "OK":
+            raise OsmerApiResponseError("Unexpected sensors response")
+
+        sensors = data.get("sensors")
+
+        if sensors is None:
+            raise OsmerApiResponseError("Missing sensors")
+
+        return [parse_sensor(sensor) for sensor in sensors]
+
+    async def get_sensor_by_code(
+        self,
+        station_id: int,
+        code: str,
+    ) -> Sensor | None:
+        """Return sensor by code."""
+
+        sensors = await self.get_sensors(station_id)
+
+        for sensor in sensors:
+            if sensor.code == code:
+                return sensor
+
+        return None
+
+    async def get_measures(
+        self,
+        station_id: int,
+        sensor_id: int,
+        start: str,
+        end: str,
+    ) -> list[Measure]:
+        """Return sensor measurements."""
+
+        data = await self._get(
+            f"/stations/{station_id}/sensors/{sensor_id}/measures?from={start}&to={end}"
+        )
+
+        if data.get("result") != "OK":
+            raise OsmerApiResponseError("Unexpected measures response")
+
+        measures = data.get("measures")
+
+        if measures is None:
+            raise OsmerApiResponseError("Missing measures")
+
+        return [parse_measure(measure) for measure in measures]
+
+    async def get_latest_measure(
+        self,
+        station_id: int,
+        sensor: Sensor,
+    ) -> Measure | None:
+        """Return latest sensor value."""
+
         now = datetime.now(UTC)
 
-        # 1. Se l'XML è già in cache RAM ed è più recente di 15 minuti, usalo direttamente
+        start = now - timedelta(hours=3)
+
+        measures = await self.get_measures(
+            station_id=station_id,
+            sensor_id=sensor.id,
+            start=start.isoformat(),
+            end=now.isoformat(),
+        )
+
+        if not measures:
+            return None
+
+        return measures[-1]
+
+    async def get_forecasts(
+        self,
+        zone: str,
+    ) -> list[OsmerForecastDay]:
+        """Return forecast for zone using API or XML bulletin fallback."""
+
+        # 1. Prova prima l'endpoint API REST standard
+        try:
+            data = await self._get(f"/forecasts/{zone}")
+
+            if data.get("result") == "OK" and data.get("forecasts"):
+                return [
+                    OsmerForecastDay(
+                        date=f["date"],
+                        condition=map_osmer_condition(f.get("condition", "")),
+                        temp_min=f.get("temp_min"),
+                        temp_max=f.get("temp_max"),
+                        precipitation_probability=f.get("precip_prob"),
+                        summary=f.get("summary"),
+                    )
+                    for f in data["forecasts"]
+                ]
+        except (
+            OsmerApiError,
+            OsmerConnectionError,
+            KeyError,
+            TypeError,
+            ValueError,
+        ) as err:
+            _LOGGER.debug("REST Forecast API unavailable for zone %s: %s", zone, err)
+
+        # 2. Fallback: Bollettino XML da dev.meteo.fvg.it con cache RAM di 15 min
+        now = datetime.now(UTC)
+
         if (
             self._xml_cache
             and self._xml_cache_time
@@ -120,7 +212,6 @@ class OsmerApiClient:
             if forecasts:
                 return forecasts
 
-        # 2. Altrimenti scarica il bollettino aggiornato
         dates_to_try = [
             now.strftime("%Y%m%d"),
             (now - timedelta(days=1)).strftime("%Y%m%d"),
@@ -129,7 +220,8 @@ class OsmerApiClient:
 
         headers = {
             "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) HomeAssistant-OSMER-FVG"
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
             )
         }
 
@@ -142,14 +234,17 @@ class OsmerApiClient:
                     if response.status == 200:
                         xml_text = await response.text()
                         if not xml_text.strip().startswith(("<!DOCTYPE", "<html")):
-                            # Salva in cache RAM
                             self._xml_cache = xml_text
                             self._xml_cache_time = now
 
                             forecasts = parse_osmer_forecast_xml(xml_text, zone)
                             if forecasts:
                                 return forecasts
-            except (aiohttp.ClientError, OsmerApiError) as err:
-                _LOGGER.debug("Error fetching forecast from %s: %s", url, err)
+            except (
+                aiohttp.ClientError,
+                OsmerApiError,
+                UnicodeDecodeError,
+            ) as err:
+                _LOGGER.debug("Error fetching XML forecast from %s: %s", url, err)
 
         return []
