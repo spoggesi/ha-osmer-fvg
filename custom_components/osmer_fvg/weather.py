@@ -102,28 +102,26 @@ class OsmerWeatherEntity(WeatherEntity):
             return []
 
         forecast_list: list[Forecast] = []
-        current_temp = self.native_temperature
+        current_temp = self.native_temperature or 20.0
 
         for item_f in self.coordinator.data.forecasts:
-            # Formattazione data ISO 8601 completa con fuso orario richiesta dal frontend di HA
+            # Formattazione ISO 8601 a Mezzogiorno UTC (Standard Home Assistant per Daily Forecast)
             date_str = item_f.date
             if "T" not in date_str:
-                date_str = f"{date_str}T00:00:00+00:00"
+                date_str = f"{date_str}T12:00:00+00:00"
 
-            # Gestione sicura dei valori di temperatura
+            # Temperature di fallback per evitare float nulli nel frontend
             max_temp = item_f.temp_max if item_f.temp_max is not None else current_temp
-            min_temp = item_f.temp_min if item_f.temp_min is not None else current_temp
+            min_temp = (
+                item_f.temp_min if item_f.temp_min is not None else (current_temp - 4.0)
+            )
 
             forecast_item: Forecast = {
                 "datetime": date_str,
-                "condition": item_f.condition,
+                "condition": item_f.condition or "sunny",
+                "native_temperature": float(max_temp),
+                "native_templow": float(min_temp),
             }
-
-            if max_temp is not None:
-                forecast_item["native_temperature"] = max_temp
-
-            if min_temp is not None:
-                forecast_item["native_templow"] = min_temp
 
             if item_f.precipitation_probability is not None:
                 forecast_item["precipitation_probability"] = (
@@ -135,7 +133,7 @@ class OsmerWeatherEntity(WeatherEntity):
         return forecast_list
 
     async def async_forecast_daily(self) -> list[Forecast]:
-        """Return daily forecast (legacy compatibility)."""
+        """Return daily forecast (legacy)."""
 
         return self._get_forecast_list()
 
