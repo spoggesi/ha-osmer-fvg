@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.components.weather import (
     Forecast,
     WeatherEntity,
@@ -35,7 +37,9 @@ async def async_setup_entry(
     async_add_entities([OsmerWeatherEntity(coordinator)])
 
 
-class OsmerWeatherEntity(CoordinatorEntity[OsmerDataUpdateCoordinator], WeatherEntity):
+class OsmerWeatherEntity(
+    CoordinatorEntity[OsmerDataUpdateCoordinator], WeatherEntity
+):
     """Representation of an OSMER weather entity."""
 
     _attr_has_entity_name = True
@@ -66,7 +70,7 @@ class OsmerWeatherEntity(CoordinatorEntity[OsmerDataUpdateCoordinator], WeatherE
             manufacturer="OSMER FVG",
             model="Weather Station",
             configuration_url="https://monitor.protezionecivile.fvg.it",
-            sw_version="0.3.2",
+            sw_version="0.3.3",
         )
 
     @property
@@ -122,9 +126,13 @@ class OsmerWeatherEntity(CoordinatorEntity[OsmerDataUpdateCoordinator], WeatherE
             if "T" not in date_str:
                 date_str = f"{date_str}T12:00:00+00:00"
 
-            max_temp = item_f.temp_max if item_f.temp_max is not None else current_temp
+            max_temp = (
+                item_f.temp_max if item_f.temp_max is not None else current_temp
+            )
             min_temp = (
-                item_f.temp_min if item_f.temp_min is not None else (current_temp - 4.0)
+                item_f.temp_min
+                if item_f.temp_min is not None
+                else (current_temp - 4.0)
             )
 
             forecast_item: Forecast = {
@@ -148,6 +156,14 @@ class OsmerWeatherEntity(CoordinatorEntity[OsmerDataUpdateCoordinator], WeatherE
         """Return daily forecast list for legacy weather cards."""
 
         return self._get_forecast_list()
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return extra state attributes to expose forecast array to all cards."""
+
+        return {
+            "forecast": self._get_forecast_list(),
+        }
 
     async def async_forecast_daily(self) -> list[Forecast]:
         """Return daily forecast (legacy service)."""
