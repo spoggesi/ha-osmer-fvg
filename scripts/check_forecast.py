@@ -17,7 +17,7 @@ from custom_components.osmer_fvg.forecast_zone import get_osmer_zone
 
 logging.basicConfig(level=logging.INFO)
 
-STATION_ID = 209
+STATION_ID = 131
 
 
 async def main() -> None:

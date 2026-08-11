@@ -96,21 +96,40 @@ class OsmerWeatherEntity(WeatherEntity):
         return "sunny"
 
     def _get_forecast_list(self) -> list[Forecast]:
-        """Build forecast items list."""
+        """Build forecast items list safely formatted for HA Frontend."""
 
         if not self.coordinator.data or not self.coordinator.data.forecasts:
             return []
 
         forecast_list: list[Forecast] = []
+        current_temp = self.native_temperature
 
         for item_f in self.coordinator.data.forecasts:
+            # Formattazione data ISO 8601 completa con fuso orario richiesta dal frontend di HA
+            date_str = item_f.date
+            if "T" not in date_str:
+                date_str = f"{date_str}T00:00:00+00:00"
+
+            # Gestione sicura dei valori di temperatura
+            max_temp = item_f.temp_max if item_f.temp_max is not None else current_temp
+            min_temp = item_f.temp_min if item_f.temp_min is not None else current_temp
+
             forecast_item: Forecast = {
-                "datetime": item_f.date,
+                "datetime": date_str,
                 "condition": item_f.condition,
-                "native_temperature": item_f.temp_max,
-                "native_templow": item_f.temp_min,
-                "precipitation_probability": item_f.precipitation_probability,
             }
+
+            if max_temp is not None:
+                forecast_item["native_temperature"] = max_temp
+
+            if min_temp is not None:
+                forecast_item["native_templow"] = min_temp
+
+            if item_f.precipitation_probability is not None:
+                forecast_item["precipitation_probability"] = (
+                    item_f.precipitation_probability
+                )
+
             forecast_list.append(forecast_item)
 
         return forecast_list
