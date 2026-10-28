@@ -7,7 +7,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN
+from .const import DOMAIN, VERSION
 from .coordinator import (
     OsmerDataUpdateCoordinator,
 )
@@ -53,7 +53,7 @@ async def async_get_config_entry_diagnostics(
     return {
         "integration": {
             "domain": DOMAIN,
-            "version": "0.1.0",
+            "version": VERSION,
         },
         "config_entry": {
             "title": entry.title,

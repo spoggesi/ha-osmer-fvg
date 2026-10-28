@@ -8,6 +8,7 @@ from homeassistant.components.sensor import (
 )
 
 DOMAIN = "osmer_fvg"
+VERSION = "0.3.4"
 
 DEFAULT_SCAN_INTERVAL = timedelta(minutes=15)
 

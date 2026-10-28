@@ -63,5 +63,16 @@
       "cannot_connect": "Impossibile collegarsi al servizio OSMER FVG.",
       "invalid_station": "Nessuna stazione valida disponibile."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opzioni OSMER FVG",
+        "description": "Seleziona quali sensori abilitare o disabilitare per questa stazione.",
+        "data": {
+          "enabled_sensors": "Sensori abilitati"
+        }
+      }
+    }
   }
 }

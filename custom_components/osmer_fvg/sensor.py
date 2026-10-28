@@ -15,7 +15,7 @@ from homeassistant.helpers.entity_platform import (
     AddEntitiesCallback,
 )
 
-from .const import DOMAIN, MONITORED_SENSORS
+from .const import DOMAIN, MONITORED_SENSORS, VERSION
 from .coordinator import OsmerDataUpdateCoordinator
 
 
@@ -91,7 +91,7 @@ class OsmerSensor(
             manufacturer="OSMER FVG",
             model="Weather Station",
             configuration_url="https://monitor.protezionecivile.fvg.it",
-            sw_version="0.3.0",
+            sw_version=VERSION,
         )
 
     @property

@@ -21,7 +21,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DOMAIN, VERSION
 from .coordinator import OsmerDataUpdateCoordinator
 
 
@@ -68,7 +68,7 @@ class OsmerWeatherEntity(CoordinatorEntity[OsmerDataUpdateCoordinator], WeatherE
             manufacturer="OSMER FVG",
             model="Weather Station",
             configuration_url="https://monitor.protezionecivile.fvg.it",
-            sw_version="0.3.4",
+            sw_version=VERSION,
         )
 
     @property
