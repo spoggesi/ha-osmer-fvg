@@ -1,9 +1,8 @@
 """Tests for OSMER weather entity."""
 
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
-from homeassistant.components.weather import Forecast
 from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
 
@@ -13,7 +12,10 @@ from custom_components.osmer_fvg.api.models import (
     Sensor,
     Station,
 )
-from custom_components.osmer_fvg.coordinator import OsmerData, OsmerDataUpdateCoordinator
+from custom_components.osmer_fvg.coordinator import (
+    OsmerData,
+    OsmerDataUpdateCoordinator,
+)
 from custom_components.osmer_fvg.weather import OsmerWeatherEntity
 
 

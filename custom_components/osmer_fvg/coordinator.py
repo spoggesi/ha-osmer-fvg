@@ -104,7 +104,9 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
             return False
         try:
             updated = datetime.fromisoformat(timestamp)
-            return datetime.now(UTC) - updated <= timedelta(days=COORDINATOR_CACHE_TTL_DAYS)
+            return datetime.now(UTC) - updated <= timedelta(
+                days=COORDINATOR_CACHE_TTL_DAYS
+            )
         except ValueError:
             return False
 

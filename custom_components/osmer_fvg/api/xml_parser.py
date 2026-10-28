@@ -37,7 +37,7 @@ def _parse_date(date_str: str | None) -> str:
     if not date_str:
         return ""
     date_str = str(date_str).strip()
-    
+
     # If already in ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS), return as-is
     if len(date_str) >= 10 and date_str[4] == "-" and date_str[7] == "-":
         # Check if it's a full ISO datetime
@@ -46,7 +46,7 @@ def _parse_date(date_str: str | None) -> str:
         # It's just a date, ensure it's complete
         if len(date_str) == 10:
             return date_str
-    
+
     # Try to parse DD-MM-YYYY or DD/MM/YYYY
     sep = "-" if "-" in date_str else ("/" if "/" in date_str else None)
     if sep:
@@ -58,7 +58,7 @@ def _parse_date(date_str: str | None) -> str:
             # Handle YYYY-MM-DD or YYYY/MM/DD
             if len(parts[0]) == 4:
                 return f"{parts[0]}-{parts[1].zfill(2)}-{parts[2].zfill(2)}"
-    
+
     return date_str
 
 
@@ -82,7 +82,7 @@ def parse_osmer_forecast_xml(
         return forecasts
 
     clean_num = str(target_zone).strip().upper().replace("Z", "").replace("F", "")
-    
+
     # Ensure clean_num is not empty
     if not clean_num:
         _LOGGER.warning("Invalid target_zone: %s", target_zone)
@@ -118,7 +118,7 @@ def parse_osmer_forecast_xml(
             z_nome = str(z.attrib.get("nome", "")).strip().upper()
             z_id = str(z.attrib.get("id", "")).strip().upper()
             z_clean = z_nome.replace("Z", "").replace("F", "")
-            
+
             # Skip empty zone identifiers
             if not z_clean and not z_id and z_nome != target_zone.upper():
                 continue
@@ -168,11 +168,13 @@ def parse_osmer_forecast_xml(
             if validated_date and len(validated_date) < 10:
                 # Try to add time if only date
                 validated_date = f"{validated_date}T12:00:00+00:00"
-            
+
             forecasts.append(
                 OsmerForecastDay(
                     date=validated_date,
-                    condition=map_osmer_condition(condition_text) if condition_text else "sunny",
+                    condition=map_osmer_condition(condition_text)
+                    if condition_text
+                    else "sunny",
                     temp_min=temp_min,
                     temp_max=temp_max,
                     precipitation_probability=precip_prob,
