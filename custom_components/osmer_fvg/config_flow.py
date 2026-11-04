@@ -16,10 +16,12 @@ from .api.exceptions import (
     OsmerConnectionError,
 )
 from .const import (
+    CONF_MULTI_STATION,
     CONF_OFFLINE_THRESHOLD,
     CONF_RETRY_COUNT,
     CONF_RETRY_DELAY,
     CONF_SCAN_INTERVAL,
+    CONF_STATION_IDS,
     CONF_TIMEOUT,
     DEFAULT_OFFLINE_THRESHOLD,
     DEFAULT_RETRY_COUNT,
@@ -42,6 +44,7 @@ from .flow.selectors import (
     build_nearest_station_selector,
     build_selection_method_selector,
     build_sensor_selector,
+    build_station_search_selector,
     build_station_selector,
 )
 from .flow.service import FlowService
@@ -141,6 +144,9 @@ class OsmerFvgConfigFlow(
 
             if method == "address":
                 return await self.async_step_address()
+            
+            if method == "multi_station":
+                return await self.async_step_multi_station()
 
         return self.async_show_form(
             step_id="user",
@@ -202,6 +208,84 @@ class OsmerFvgConfigFlow(
 
         return self.async_show_form(
             step_id="station",
+            data_schema=schema,
+        )
+
+    async def async_step_multi_station(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> ConfigFlowResult:
+        """Handle multi-station selection."""
+
+        if self.service is None:
+            return self.async_abort(
+                reason="cannot_connect",
+            )
+
+        if user_input is not None:
+            if user_input.get("action") == BACK_OPTION:
+                return await self.async_step_user()
+
+            station_ids = user_input.get(CONF_STATION_IDS, [])
+            
+            if not station_ids:
+                return self.async_show_form(
+                    step_id="multi_station",
+                    data_schema=build_station_search_selector(
+                        self.flow_context.stations,
+                        self.flow_context.sensor_cache,
+                    ),
+                    errors={
+                        "base": "select_at_least_one_station",
+                    },
+                )
+
+            # Load all selected stations
+            selected_stations = []
+            for station_id_str in station_ids:
+                station_id = int(station_id_str)
+                station = await self.service.load_station(station_id)
+                if station:
+                    selected_stations.append(station)
+
+            if not selected_stations:
+                return self.async_abort(
+                    reason="invalid_stations",
+                )
+
+            # For multi-station, use a composite unique ID
+            station_id_hash = hash(tuple(sorted(station_ids)))
+            await self.async_set_unique_id(
+                f"multi_{station_id_hash}",
+            )
+
+            self._abort_if_unique_id_configured()
+
+            self.flow_context.stations = selected_stations
+            self.flow_context.multi_station_mode = True
+
+            # Load sensors for first station (we'll use the same for all in multi-mode)
+            if selected_stations:
+                sensors = await self.service.load_sensors(selected_stations[0])
+                self.flow_context.sensors = sensors
+
+            return await self.async_step_sensors()
+
+        schema = build_station_search_selector(
+            self.flow_context.stations,
+            self.flow_context.sensor_cache,
+        )
+
+        schema = schema.extend(
+            {
+                vol.Optional(
+                    "action",
+                ): build_back_selector(),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="multi_station",
             data_schema=schema,
         )
 
@@ -396,6 +480,9 @@ class OsmerFvgConfigFlow(
                 reason="missing_station",
             )
 
+        station = self.flow_context.station
+        multi_station = getattr(self.flow_context, 'multi_station_mode', False)
+        
         selected_sensors = [
             sensor
             for sensor in self.flow_context.sensors
@@ -406,15 +493,29 @@ class OsmerFvgConfigFlow(
             if user_input.get("action") == BACK_OPTION:
                 return await self.async_step_sensors()
 
-            return self.async_create_entry(
-                title=build_entry_title(
-                    station,
-                ),
-                data=build_entry_data(
-                    station,
-                    self.flow_context.enabled_sensors,
-                ),
-            )
+            # Handle multi-station case
+            if multi_station and hasattr(self.flow_context, 'stations'):
+                return self.async_create_entry(
+                    title=build_entry_title(
+                        self.flow_context.stations,
+                        multi_station=True,
+                    ),
+                    data=build_entry_data(
+                        self.flow_context.stations,
+                        self.flow_context.enabled_sensors,
+                        multi_station=True,
+                    ),
+                )
+            else:
+                return self.async_create_entry(
+                    title=build_entry_title(
+                        station,
+                    ),
+                    data=build_entry_data(
+                        station,
+                        self.flow_context.enabled_sensors,
+                    ),
+                )
 
         schema = vol.Schema(
             {
@@ -476,6 +577,10 @@ class OsmerFvgOptionsFlowHandler(config_entries.OptionsFlow):
             code: f"{config['name']} ({code})"
             for code, config in MONITORED_SENSORS.items()
         }
+        
+        # Check if multi-station is enabled
+        is_multi_station = self.config_entry.options.get(CONF_MULTI_STATION, False)
+        current_station_ids = self.config_entry.options.get(CONF_STATION_IDS, [])
 
         schema = vol.Schema(
             {
@@ -483,6 +588,19 @@ class OsmerFvgOptionsFlowHandler(config_entries.OptionsFlow):
                     "enabled_sensors",
                     default=current_enabled,
                 ): cv.multi_select(sensor_options),
+                vol.Optional(
+                    CONF_MULTI_STATION,
+                    default=is_multi_station,
+                ): bool,
+                vol.Optional(
+                    CONF_STATION_IDS,
+                    default=current_station_ids,
+                ): cv.multi_select(
+                    {
+                        str(s.id): f"{s.name} (ID: {s.id})"
+                        for s in self.flow_context.stations
+                    }
+                ) if is_multi_station and self.flow_context.stations else [],
                 vol.Optional(
                     CONF_SCAN_INTERVAL,
                     default=current_scan_interval,

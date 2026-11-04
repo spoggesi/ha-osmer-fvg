@@ -8,7 +8,11 @@ from homeassistant.components.sensor import (
 )
 
 DOMAIN = "osmer_fvg"
-VERSION = "0.4.1"
+VERSION = "0.4.2"
+
+# Multi-station support
+CONF_STATION_IDS = "station_ids"
+CONF_MULTI_STATION = "multi_station"
 
 # Default update interval
 DEFAULT_SCAN_INTERVAL = timedelta(minutes=15)
@@ -25,6 +29,17 @@ CONF_RETRY_COUNT = "retry_count"
 CONF_RETRY_DELAY = "retry_delay"
 CONF_TIMEOUT = "timeout"
 CONF_OFFLINE_THRESHOLD = "offline_threshold"
+CONF_ENABLED_SENSORS = "enabled_sensors"
+
+# Default enabled sensors
+DEFAULT_ENABLED_SENSORS: list[str] = [
+    "T",  # Temperature
+    "U",  # Humidity
+    "VV",  # Wind speed
+    "DV",  # Wind direction
+    "PA",  # Pressure
+    "RR",  # Precipitation
+]
 
 BASE_URL = "https://monitor.protezionecivile.fvg.it/api"
 

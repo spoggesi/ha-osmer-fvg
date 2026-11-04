@@ -13,6 +13,7 @@ from homeassistant.helpers.selector import (
 )
 
 from ..api.models import Sensor, Station
+from ..const import CONF_STATION_IDS
 from .formatter import (
     sensor_label,
     station_label,
@@ -31,7 +32,11 @@ def build_selection_method_selector() -> vol.Schema:
                     options=[
                         SelectOptionDict(
                             value="station",
-                            label="📡 Seleziona da lista stazioni",
+                            label="📡 Seleziona una stazione",
+                        ),
+                        SelectOptionDict(
+                            value="multi_station",
+                            label="📡📡 Seleziona più stazioni",
                         ),
                         SelectOptionDict(
                             value="address",
@@ -183,4 +188,79 @@ def build_back_selector() -> SelectSelector:
             ],
             mode=SelectSelectorMode.LIST,
         )
+    )
+
+
+def build_multi_station_selector(
+    stations: list[Station],
+    station_sensors: dict[int, list[Sensor]],
+    selected_stations: list[int] | None = None,
+) -> vol.Schema:
+    """Build multi-station selector with search/autocomplete."""
+    
+    options: list[SelectOptionDict] = []
+    
+    for station in stations:
+        options.append(
+            SelectOptionDict(
+                value=str(station.id),
+                label=station_label(
+                    station,
+                    station_sensors.get(station.id, []),
+                ),
+            )
+        )
+    
+    return vol.Schema(
+        {
+            vol.Optional(
+                CONF_STATION_IDS,
+                default=selected_stations or [],
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=options,
+                    multiple=True,
+                    mode=SelectSelectorMode.DROPDOWN,
+                    custom_placeholder="🔍 Cerca e seleziona stazioni...",
+                )
+            )
+        }
+    )
+
+
+def build_station_search_selector(
+    stations: list[Station],
+    station_sensors: dict[int, list[Sensor]],
+) -> vol.Schema:
+    """Build station selector with search input for autocomplete."""
+    
+    # Create options sorted by name for easier searching
+    sorted_stations = sorted(stations, key=lambda s: s.name.lower())
+    
+    options: list[SelectOptionDict] = []
+    
+    for station in sorted_stations:
+        options.append(
+            SelectOptionDict(
+                value=str(station.id),
+                label=station_label(
+                    station,
+                    station_sensors.get(station.id, []),
+                ),
+            )
+        )
+    
+    return vol.Schema(
+        {
+            vol.Required(
+                "station_ids",
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=options,
+                    multiple=True,
+                    mode=SelectSelectorMode.DROPDOWN,
+                    custom_placeholder="🔍 Inizia a scrivere per cercare una stazione...",
+                )
+            )
+        }
     )
