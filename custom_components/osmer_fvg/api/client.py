@@ -283,7 +283,7 @@ class OsmerApiClient:
 
     async def get_alerts(self) -> list[OsmerAlert]:
         """Return active alerts from OSMER FVG API.
-        
+
         Note: Alerts endpoint may not be available in all OSMER API versions.
         Returns empty list if endpoint doesn't exist or returns error.
         """
@@ -294,10 +294,10 @@ class OsmerApiClient:
             url=url,
             request_id=request_id,
         )
-        
+
         try:
             data = await self._get("/alerts")
-            
+
             if data.get("result") != "OK":
                 api_logger.debug(
                     "Unexpected alerts response",
@@ -305,7 +305,7 @@ class OsmerApiClient:
                     request_id=request_id,
                 )
                 return []
-            
+
             alerts_data = data.get("alerts", [])
             if not alerts_data:
                 api_logger.debug(
@@ -313,7 +313,7 @@ class OsmerApiClient:
                     request_id=request_id,
                 )
                 return []
-            
+
             alerts = []
             for alert_data in alerts_data:
                 try:
@@ -343,14 +343,14 @@ class OsmerApiClient:
                         request_id=request_id,
                     )
                     continue
-            
+
             api_logger.info(
                 "Fetched alerts",
                 alert_count=len(alerts),
                 request_id=request_id,
             )
             return alerts
-            
+
         except (OsmerConnectionError, Exception):  # noqa: BLE001
             api_logger.debug(
                 "Alerts endpoint not available",
@@ -364,7 +364,7 @@ class OsmerApiClient:
         """Parse datetime from various formats."""
         if value is None:
             return None
-        
+
         try:
             if isinstance(value, str):
                 # Try ISO format first

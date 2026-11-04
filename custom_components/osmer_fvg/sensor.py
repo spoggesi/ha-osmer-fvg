@@ -23,7 +23,6 @@ from .coordinator import OsmerDataUpdateCoordinator
 from .helpers.calculations import calculate_derived_sensors
 from .logging import sensor_logger
 
-# Keep standard logger for compatibility
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -34,6 +33,7 @@ async def async_setup_entry(
 ) -> None:
     """Set up OSMER sensors."""
     from .logging import set_request_id
+
     request_id = set_request_id()
 
     coordinator: OsmerDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
@@ -49,13 +49,9 @@ async def async_setup_entry(
 
     entities: list[SensorEntity] = []
 
+    # 1. Base Sensors
     for sensor_code in coordinator.data.sensors:
         if sensor_code not in MONITORED_SENSORS:
-            sensor_logger.debug(
-                "Skipping unmonitored sensor",
-                sensor_code=sensor_code,
-                request_id=request_id,
-            )
             continue
 
         sensor_config = MONITORED_SENSORS[sensor_code]
@@ -75,20 +71,8 @@ async def async_setup_entry(
                 description,
             )
         )
-        sensor_logger.debug(
-            "Added sensor entity",
-            sensor_code=sensor_code,
-            sensor_name=sensor_config["name"],
-            request_id=request_id,
-        )
 
-    sensor_logger.info(
-        "Total sensor entities",
-        count=len(entities),
-        request_id=request_id,
-    )
-
-    # Add last update timestamp sensor
+    # 2. Last Update Timestamp
     timestamp_description = SensorEntityDescription(
         key="last_update",
         name="Ultimo aggiornamento",
@@ -103,23 +87,21 @@ async def async_setup_entry(
         )
     )
 
-    # Add derived sensors (if base sensors are available)
-    # Check which derived sensors can be created based on available base sensors
+    # 3. Derived Sensors
     available_base_sensors = set(coordinator.data.sensors.keys())
     derived_sensors_to_create = []
-    
+
     for sensor_code, config in MONITORED_SENSORS.items():
         if config.get("derived") and sensor_code not in coordinator.enabled_sensors:
-            # Check if we have the required base sensors
             required_base = []
-            if sensor_code == "DEW_POINT" or sensor_code == "HEAT_INDEX" or sensor_code == "ABS_HUMIDITY":
+            if sensor_code in ["DEW_POINT", "HEAT_INDEX", "ABS_HUMIDITY"]:
                 required_base = ["T", "U"]
             elif sensor_code == "WIND_CHILL":
                 required_base = ["T", "VV"]
-            
+
             if all(base in available_base_sensors for base in required_base):
                 derived_sensors_to_create.append(sensor_code)
-    
+
     for sensor_code in derived_sensors_to_create:
         sensor_config = MONITORED_SENSORS[sensor_code]
         description = SensorEntityDescription(
@@ -138,14 +120,7 @@ async def async_setup_entry(
             )
         )
 
-    # Add alerts sensor
-    entities.append(
-        OsmerAlertsSensor(
-            coordinator,
-        )
-    )
-
-    # Add health sensor for diagnostics
+    # 4. Health Diagnostic Sensor
     entities.append(
         OsmerHealthSensor(
             coordinator,
@@ -155,9 +130,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class OsmerSensor(
-    SensorEntity,
-):
+class OsmerSensor(SensorEntity):
     """Representation of an OSMER sensor."""
 
     _attr_has_entity_name = True
@@ -169,7 +142,6 @@ class OsmerSensor(
         description: SensorEntityDescription,
     ) -> None:
         """Initialize sensor."""
-
         self.coordinator = coordinator
         self.sensor_code = sensor_code
         self.entity_description = description
@@ -184,9 +156,7 @@ class OsmerSensor(
     @property
     def device_info(self) -> DeviceInfo:
         """Return device information."""
-
         station = self.coordinator.data.station
-
         return DeviceInfo(
             identifiers={(DOMAIN, str(station.id))},
             name=f"OSMER {station.name}",
@@ -199,22 +169,14 @@ class OsmerSensor(
     @property
     def native_value(self) -> float | None:
         """Return sensor value (with offline support)."""
-
         measure = self.coordinator.data.measures.get(self.sensor_code)
 
         if measure is not None:
-            # Update last known value
             self._last_known_value = measure.value
             self._last_known_timestamp = measure.timestamp.isoformat()
             return measure.value
 
-        # If no measure, return last known value if available (offline mode)
         if self._last_known_value is not None and self.coordinator.is_offline:
-            _LOGGER.debug(
-                "Sensor %s returning last known value (offline mode): %s",
-                self._attr_unique_id,
-                self._last_known_value,
-            )
             return self._last_known_value
 
         return None
@@ -222,7 +184,6 @@ class OsmerSensor(
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return extra state attributes."""
-
         station = self.coordinator.data.station
         sensor = self.coordinator.data.sensors[self.sensor_code]
         measure = self.coordinator.data.measures.get(self.sensor_code)
@@ -241,32 +202,23 @@ class OsmerSensor(
             "is_offline": self.coordinator.is_offline,
             "offline_since": (
                 self.coordinator.osmer_last_update_success.isoformat()
-                if self.coordinator.is_offline and self.coordinator.osmer_last_update_success
+                if self.coordinator.is_offline
+                and self.coordinator.osmer_last_update_success
                 else None
             ),
         }
-        
         return attrs
 
     async def async_added_to_hass(self) -> None:
         """Initialize last known value when entity is added."""
         await super().async_added_to_hass()
-        
-        # Initialize last known value from current data
         measure = self.coordinator.data.measures.get(self.sensor_code)
         if measure:
             self._last_known_value = measure.value
             self._last_known_timestamp = measure.timestamp.isoformat()
-            _LOGGER.debug(
-                "Initialized sensor %s with value: %s",
-                self._attr_unique_id,
-                self._last_known_value,
-            )
 
 
-class OsmerLastUpdateSensor(
-    SensorEntity,
-):
+class OsmerLastUpdateSensor(SensorEntity):
     """Representation of an OSMER last update timestamp sensor."""
 
     _attr_has_entity_name = True
@@ -279,19 +231,15 @@ class OsmerLastUpdateSensor(
         description: SensorEntityDescription,
     ) -> None:
         """Initialize sensor."""
-
         self.coordinator = coordinator
         self.entity_description = description
-
         station = coordinator.data.station
         self._attr_unique_id = f"osmer_{station.id}_last_update"
 
     @property
     def device_info(self) -> DeviceInfo:
         """Return device information."""
-
         station = self.coordinator.data.station
-
         return DeviceInfo(
             identifiers={(DOMAIN, str(station.id))},
             name=f"OSMER {station.name}",
@@ -304,11 +252,9 @@ class OsmerLastUpdateSensor(
     @property
     def native_value(self) -> str | None:
         """Return last update timestamp."""
-
         if not self.coordinator.data or not self.coordinator.data.measures:
             return None
 
-        # Trova il timestamp più recente tra tutte le misurazioni
         latest_timestamp = None
         for measure in self.coordinator.data.measures.values():
             if measure.timestamp and (
@@ -321,9 +267,11 @@ class OsmerLastUpdateSensor(
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return extra state attributes."""
-
         if not self.coordinator.data or not self.coordinator.data.measures:
-            if self.coordinator.is_offline and self.coordinator.osmer_last_update_success:
+            if (
+                self.coordinator.is_offline
+                and self.coordinator.osmer_last_update_success
+            ):
                 latest_timestamp = self.coordinator.osmer_last_update_success
                 return {
                     "iso_format": latest_timestamp.isoformat(),
@@ -359,9 +307,7 @@ class OsmerLastUpdateSensor(
         return value
 
 
-class OsmerDerivedSensor(
-    SensorEntity,
-):
+class OsmerDerivedSensor(SensorEntity):
     """Representation of a derived OSMER sensor (calculated from base sensors)."""
 
     _attr_has_entity_name = True
@@ -374,11 +320,9 @@ class OsmerDerivedSensor(
         description: SensorEntityDescription,
     ) -> None:
         """Initialize sensor."""
-
         self.coordinator = coordinator
         self.sensor_code = sensor_code
         self.entity_description = description
-
         station = coordinator.data.station
         self._attr_unique_id = f"osmer_{station.id}_{sensor_code}"
         self._last_known_value: float | None = None
@@ -387,9 +331,7 @@ class OsmerDerivedSensor(
     @property
     def device_info(self) -> DeviceInfo:
         """Return device information."""
-
         station = self.coordinator.data.station
-
         return DeviceInfo(
             identifiers={(DOMAIN, str(station.id))},
             name=f"OSMER {station.name}",
@@ -402,34 +344,28 @@ class OsmerDerivedSensor(
     @property
     def native_value(self) -> float | None:
         """Return calculated value for derived sensor."""
-
         if not self.coordinator.data or not self.coordinator.data.measures:
             if self.coordinator.is_offline and self._last_known_value is not None:
                 return self._last_known_value
             return None
 
-        derived_values = calculate_derived_sensors(
-            self.coordinator.data.measures
-        )
-        
+        derived_values = calculate_derived_sensors(self.coordinator.data.measures)
         value = derived_values.get(self.sensor_code)
-        
+
         if value is not None:
             self._last_known_value = value
             self._last_known_timestamp = datetime.now().isoformat()
             return value
-        
+
         if self.coordinator.is_offline and self._last_known_value is not None:
             return self._last_known_value
-        
+
         return None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return extra state attributes."""
-
         station = self.coordinator.data.station
-        
         attrs: dict[str, Any] = {
             "station": station.name,
             "station_id": station.id,
@@ -438,155 +374,34 @@ class OsmerDerivedSensor(
             "last_known_value": self._last_known_value,
             "last_known_timestamp": self._last_known_timestamp,
             "is_offline": self.coordinator.is_offline,
-            "offline_since": (
-                self.coordinator.osmer_last_update_success.isoformat()
-                if self.coordinator.is_offline and self.coordinator.osmer_last_update_success
-                else None
-            ),
         }
-        
+
         if self.sensor_code in ["DEW_POINT", "HEAT_INDEX", "ABS_HUMIDITY"]:
             if "T" in self.coordinator.data.measures:
                 attrs["base_temperature"] = self.coordinator.data.measures["T"].value
             if "U" in self.coordinator.data.measures:
                 attrs["base_humidity"] = self.coordinator.data.measures["U"].value
-        
+
         if self.sensor_code == "WIND_CHILL":
             if "T" in self.coordinator.data.measures:
                 attrs["base_temperature"] = self.coordinator.data.measures["T"].value
             if "VV" in self.coordinator.data.measures:
                 attrs["base_wind_speed"] = self.coordinator.data.measures["VV"].value
-        
+
         return attrs
 
     async def async_added_to_hass(self) -> None:
         """Initialize last known value when entity is added."""
         await super().async_added_to_hass()
-        
         if self.coordinator.data and self.coordinator.data.measures:
-            derived_values = calculate_derived_sensors(
-                self.coordinator.data.measures
-            )
+            derived_values = calculate_derived_sensors(self.coordinator.data.measures)
             value = derived_values.get(self.sensor_code)
             if value is not None:
                 self._last_known_value = value
                 self._last_known_timestamp = datetime.now().isoformat()
 
 
-class OsmerAlertsSensor(
-    SensorEntity,
-):
-    """Representation of OSMER alerts sensor."""
-
-    _attr_has_entity_name = True
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_icon = "mdi:alert-circle-outline"
-
-    def __init__(
-        self,
-        coordinator: OsmerDataUpdateCoordinator,
-    ) -> None:
-        """Initialize sensor."""
-
-        self.coordinator = coordinator
-        station = coordinator.data.station
-        self._attr_unique_id = f"osmer_{station.id}_alerts"
-        self._last_known_alerts: list[Any] = []
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Return device information."""
-
-        station = self.coordinator.data.station
-
-        return DeviceInfo(
-            identifiers={(DOMAIN, str(station.id))},
-            name=f"OSMER {station.name}",
-            manufacturer="OSMER FVG",
-            model="Weather Station",
-            configuration_url="https://monitor.protezionecivile.fvg.it",
-            sw_version=VERSION,
-        )
-
-    @property
-    def native_value(self) -> str:
-        """Return the highest alert level or 'none'."""
-        if not self.coordinator.data or not self.coordinator.data.alerts:
-            return "none"
-        
-        # Update last known alerts
-        self._last_known_alerts = self.coordinator.data.alerts
-        
-        # Determine highest alert level
-        level_priority = {"green": 0, "yellow": 1, "orange": 2, "red": 3}
-        max_level = "none"
-        max_priority = -1
-        
-        for alert in self.coordinator.data.alerts:
-            priority = level_priority.get(alert.level.lower(), -1)
-            if priority > max_priority:
-                max_priority = priority
-                max_level = alert.level.lower()
-        
-        return max_level if max_level != "none" else "none"
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Return extra state attributes."""
-        if not self.coordinator.data:
-            return {
-                "active_alerts": 0,
-                "last_known_alerts": self._last_known_alerts,
-                "is_offline": self.coordinator.is_offline,
-            }
-        
-        alerts = self.coordinator.data.alerts
-        
-        attrs: dict[str, Any] = {
-            "active_alerts": len(alerts),
-            "alerts": [
-                {
-                    "id": alert.id,
-                    "title": alert.title,
-                    "description": alert.description,
-                    "level": alert.level,
-                    "type": alert.type,
-                    "start_time": alert.start_time.isoformat() if alert.start_time else None,
-                    "end_time": alert.end_time.isoformat() if alert.end_time else None,
-                    "zones": alert.zones,
-                }
-                for alert in alerts
-            ],
-            "last_known_alerts": [
-                {
-                    "id": alert.id,
-                    "title": alert.title,
-                    "level": alert.level,
-                }
-                for alert in self._last_known_alerts
-            ],
-            "is_offline": self.coordinator.is_offline,
-            "offline_since": (
-                self.coordinator.osmer_last_update_success.isoformat()
-                if self.coordinator.is_offline and self.coordinator.osmer_last_update_success
-                else None
-            ),
-        }
-        
-        return attrs
-
-    @property
-    def state(self) -> str:
-        """Return the state with additional info."""
-        value = self.native_value
-        if value == "none":
-            return "Nessuna allerta attiva"
-        return f"Allerta {value.upper()}"
-
-
-class OsmerHealthSensor(
-    SensorEntity,
-):
+class OsmerHealthSensor(SensorEntity):
     """Representation of OSMER integration health sensor."""
 
     _attr_has_entity_name = True
@@ -599,7 +414,6 @@ class OsmerHealthSensor(
         coordinator: OsmerDataUpdateCoordinator,
     ) -> None:
         """Initialize sensor."""
-
         self.coordinator = coordinator
         station = coordinator.data.station
         self._attr_unique_id = f"osmer_{station.id}_health"
@@ -607,9 +421,7 @@ class OsmerHealthSensor(
     @property
     def device_info(self) -> DeviceInfo:
         """Return device information."""
-
         station = self.coordinator.data.station
-
         return DeviceInfo(
             identifiers={(DOMAIN, str(station.id))},
             name=f"OSMER {station.name}",
@@ -624,13 +436,13 @@ class OsmerHealthSensor(
         """Return health status."""
         if self.coordinator.is_offline:
             return "offline"
-        
+
         if not self.coordinator.data:
             return "initializing"
-        
+
         if self.coordinator.data.station is None:
             return "error"
-        
+
         return "ok"
 
     @property
@@ -639,7 +451,7 @@ class OsmerHealthSensor(
         from .const import VERSION
 
         station = self.coordinator.data.station if self.coordinator.data else None
-        
+
         attrs: dict[str, Any] = {
             "status": self.native_value,
             "version": VERSION,
@@ -651,27 +463,18 @@ class OsmerHealthSensor(
             ),
             "update_interval_seconds": self.coordinator.update_interval.total_seconds(),
         }
-        
+
         if station:
             attrs["station_id"] = station.id
             attrs["station_name"] = station.name
-            attrs["station_latitude"] = station.latitude
-            attrs["station_longitude"] = station.longitude
-            attrs["station_altitude"] = station.altitude
-        
+
         if self.coordinator.data:
             attrs["sensors_count"] = len(self.coordinator.data.sensors)
             attrs["measures_count"] = len(self.coordinator.data.measures)
             attrs["forecasts_count"] = len(self.coordinator.data.forecasts)
-            attrs["alerts_count"] = len(self.coordinator.data.alerts)
-            
-            # List of active sensors
             attrs["active_sensors"] = list(self.coordinator.data.sensors.keys())
-            
-            # List of sensors with data
             attrs["sensors_with_data"] = list(self.coordinator.data.measures.keys())
-        
-        # Options
+
         if self.coordinator._options:
             attrs["options"] = {
                 "scan_interval": self.coordinator._options.get("scan_interval", 15),
@@ -679,13 +482,14 @@ class OsmerHealthSensor(
                 "retry_delay": self.coordinator._options.get("retry_delay", 5),
                 "timeout": self.coordinator._options.get("timeout", 30),
             }
-        
-        # Cache info
+
         attrs["cache"] = {
             "loaded": self.coordinator._cache_loaded,
-            "version": self.coordinator._cache_data.get("version") if self.coordinator._cache_data else None,
+            "version": self.coordinator._cache_data.get("version")
+            if self.coordinator._cache_data
+            else None,
         }
-        
+
         return attrs
 
     @property

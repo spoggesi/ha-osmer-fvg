@@ -22,7 +22,6 @@ DEFAULT_RETRY_COUNT = 3
 DEFAULT_RETRY_DELAY = 5  # seconds between retries
 DEFAULT_TIMEOUT = 30  # seconds for API calls
 DEFAULT_OFFLINE_THRESHOLD = timedelta(minutes=30)  # when to consider data stale
-DEFAULT_ENABLE_ALERT_NOTIFICATIONS = True  # enable alert notifications by default
 
 # Option keys
 CONF_SCAN_INTERVAL = "scan_interval"
@@ -31,7 +30,6 @@ CONF_RETRY_DELAY = "retry_delay"
 CONF_TIMEOUT = "timeout"
 CONF_OFFLINE_THRESHOLD = "offline_threshold"
 CONF_ENABLED_SENSORS = "enabled_sensors"
-CONF_ENABLE_ALERT_NOTIFICATIONS = "enable_alert_notifications"
 
 # Default enabled sensors
 DEFAULT_ENABLED_SENSORS: list[str] = [
@@ -216,7 +214,6 @@ MONITORED_SENSORS = {
         "unit": "sts",
         "icon": "mdi:information-outline",
     },
-    # Derived sensors (calculated from base sensors)
     "DEW_POINT": {
         "name": "Punto di rugiada",
         "device_class": SensorDeviceClass.TEMPERATURE,
@@ -243,7 +240,7 @@ MONITORED_SENSORS = {
     },
     "ABS_HUMIDITY": {
         "name": "Umidità assoluta",
-        "device_class": None,  # No device class for absolute humidity in g/m³
+        "device_class": None,
         "state_class": SensorStateClass.MEASUREMENT,
         "unit": "g/m³",
         "icon": "mdi:water",

@@ -71,7 +71,7 @@ async def async_setup_entry(
 
     # Ascolta le modifiche alle opzioni per ricaricare l'integrazione
     entry.async_on_unload(entry.add_update_listener(async_update_options))
-    
+
     # Register services
     await async_setup_services(hass)
 

@@ -95,6 +95,7 @@ def set_request_id(request_id: str | None = None) -> str:
     """Set current request ID and return it."""
     if request_id is None:
         import uuid
+
         request_id = str(uuid.uuid4())[:8]
     _request_id_var.set(request_id)
     return request_id

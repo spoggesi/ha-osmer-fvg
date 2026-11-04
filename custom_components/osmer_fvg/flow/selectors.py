@@ -197,9 +197,9 @@ def build_multi_station_selector(
     selected_stations: list[int] | None = None,
 ) -> vol.Schema:
     """Build multi-station selector with search/autocomplete."""
-    
+
     options: list[SelectOptionDict] = []
-    
+
     for station in stations:
         options.append(
             SelectOptionDict(
@@ -210,7 +210,7 @@ def build_multi_station_selector(
                 ),
             )
         )
-    
+
     return vol.Schema(
         {
             vol.Optional(
@@ -233,12 +233,12 @@ def build_station_search_selector(
     station_sensors: dict[int, list[Sensor]],
 ) -> vol.Schema:
     """Build station selector with search input for autocomplete."""
-    
+
     # Create options sorted by name for easier searching
     sorted_stations = sorted(stations, key=lambda s: s.name.lower())
-    
+
     options: list[SelectOptionDict] = []
-    
+
     for station in sorted_stations:
         options.append(
             SelectOptionDict(
@@ -249,7 +249,7 @@ def build_station_search_selector(
                 ),
             )
         )
-    
+
     return vol.Schema(
         {
             vol.Required(
