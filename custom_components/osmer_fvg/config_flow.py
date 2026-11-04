@@ -15,7 +15,20 @@ from .api.exceptions import (
     OsmerApiResponseError,
     OsmerConnectionError,
 )
-from .const import DOMAIN, MONITORED_SENSORS
+from .const import (
+    CONF_OFFLINE_THRESHOLD,
+    CONF_RETRY_COUNT,
+    CONF_RETRY_DELAY,
+    CONF_SCAN_INTERVAL,
+    CONF_TIMEOUT,
+    DEFAULT_OFFLINE_THRESHOLD,
+    DEFAULT_RETRY_COUNT,
+    DEFAULT_RETRY_DELAY,
+    DEFAULT_SCAN_INTERVAL,
+    DEFAULT_TIMEOUT,
+    DOMAIN,
+    MONITORED_SENSORS,
+)
 from .flow.confirm import build_description_placeholders
 from .flow.context import FlowContext
 from .flow.entry import (
@@ -432,9 +445,31 @@ class OsmerFvgOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        current_enabled = self.config_entry.options.get(
+        # Get current options
+        current_options = self.config_entry.options
+        current_enabled = current_options.get(
             "enabled_sensors",
             self.config_entry.data.get("enabled_sensors", []),
+        )
+        current_scan_interval = current_options.get(
+            CONF_SCAN_INTERVAL,
+            DEFAULT_SCAN_INTERVAL.total_seconds() / 60,
+        )
+        current_retry_count = current_options.get(
+            CONF_RETRY_COUNT,
+            DEFAULT_RETRY_COUNT,
+        )
+        current_retry_delay = current_options.get(
+            CONF_RETRY_DELAY,
+            DEFAULT_RETRY_DELAY,
+        )
+        current_timeout = current_options.get(
+            CONF_TIMEOUT,
+            DEFAULT_TIMEOUT,
+        )
+        current_offline_threshold = current_options.get(
+            CONF_OFFLINE_THRESHOLD,
+            int(DEFAULT_OFFLINE_THRESHOLD.total_seconds() / 60),
         )
 
         sensor_options = {
@@ -448,6 +483,26 @@ class OsmerFvgOptionsFlowHandler(config_entries.OptionsFlow):
                     "enabled_sensors",
                     default=current_enabled,
                 ): cv.multi_select(sensor_options),
+                vol.Optional(
+                    CONF_SCAN_INTERVAL,
+                    default=current_scan_interval,
+                ): vol.All(int, vol.Clamp(min=5, max=120)),
+                vol.Optional(
+                    CONF_RETRY_COUNT,
+                    default=current_retry_count,
+                ): vol.All(int, vol.Clamp(min=1, max=5)),
+                vol.Optional(
+                    CONF_RETRY_DELAY,
+                    default=current_retry_delay,
+                ): vol.All(int, vol.Clamp(min=1, max=30)),
+                vol.Optional(
+                    CONF_TIMEOUT,
+                    default=current_timeout,
+                ): vol.All(int, vol.Clamp(min=10, max=120)),
+                vol.Optional(
+                    CONF_OFFLINE_THRESHOLD,
+                    default=current_offline_threshold,
+                ): vol.All(int, vol.Clamp(min=5, max=120)),
             }
         )
 

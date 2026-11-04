@@ -10,7 +10,21 @@ from homeassistant.components.sensor import (
 DOMAIN = "osmer_fvg"
 VERSION = "0.3.4"
 
+# Default update interval
 DEFAULT_SCAN_INTERVAL = timedelta(minutes=15)
+
+# Configurable options defaults
+DEFAULT_RETRY_COUNT = 3
+DEFAULT_RETRY_DELAY = 5  # seconds between retries
+DEFAULT_TIMEOUT = 30  # seconds for API calls
+DEFAULT_OFFLINE_THRESHOLD = timedelta(minutes=30)  # when to consider data stale
+
+# Option keys
+CONF_SCAN_INTERVAL = "scan_interval"
+CONF_RETRY_COUNT = "retry_count"
+CONF_RETRY_DELAY = "retry_delay"
+CONF_TIMEOUT = "timeout"
+CONF_OFFLINE_THRESHOLD = "offline_threshold"
 
 BASE_URL = "https://monitor.protezionecivile.fvg.it/api"
 

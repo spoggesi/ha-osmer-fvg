@@ -17,7 +17,20 @@ from homeassistant.helpers.update_coordinator import (
 
 from .api.client import OsmerApiClient
 from .api.models import Measure, OsmerForecastDay, Sensor, Station
-from .const import DEFAULT_SCAN_INTERVAL, DOMAIN, VERSION
+from .const import (
+    CONF_OFFLINE_THRESHOLD,
+    CONF_RETRY_COUNT,
+    CONF_RETRY_DELAY,
+    CONF_SCAN_INTERVAL,
+    CONF_TIMEOUT,
+    DEFAULT_OFFLINE_THRESHOLD,
+    DEFAULT_RETRY_COUNT,
+    DEFAULT_RETRY_DELAY,
+    DEFAULT_SCAN_INTERVAL,
+    DEFAULT_TIMEOUT,
+    DOMAIN,
+    VERSION,
+)
 from .forecast_zone import get_osmer_zone
 
 _LOGGER = logging.getLogger(__name__)
@@ -47,14 +60,33 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
         client: OsmerApiClient,
         station_id: int,
         enabled_sensors: list[str],
+        options: dict[str, Any] | None = None,
     ) -> None:
         """Initialize coordinator."""
+
+        # Calculate scan interval from options
+        scan_interval_minutes = DEFAULT_SCAN_INTERVAL.total_seconds() / 60
+        if options and CONF_SCAN_INTERVAL in options:
+            scan_interval_minutes = options[CONF_SCAN_INTERVAL]
+        scan_interval = timedelta(minutes=scan_interval_minutes)
+
+        # Store options for use in update method
+        self._options = options or {}
+        self._retry_count = self._options.get(CONF_RETRY_COUNT, DEFAULT_RETRY_COUNT)
+        self._retry_delay = self._options.get(CONF_RETRY_DELAY, DEFAULT_RETRY_DELAY)
+        self._timeout = self._options.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)
+        self._offline_threshold = timedelta(
+            minutes=self._options.get(
+                CONF_OFFLINE_THRESHOLD,
+                int(DEFAULT_OFFLINE_THRESHOLD.total_seconds() / 60),
+            )
+        )
 
         super().__init__(
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=DEFAULT_SCAN_INTERVAL,
+            update_interval=scan_interval,
         )
 
         self.client = client
@@ -74,6 +106,10 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
         self._station: Station | None = None
         self._sensors_dict: dict[str, Sensor] | None = None
         self._zone: str | None = None
+        
+        # Last known data for offline support
+        self._last_known_data: OsmerData | None = None
+        self._osmer_last_update_success: datetime | None = None
 
     async def _async_load_cache(self) -> None:
         """Load coordinator cache from disk."""
@@ -133,62 +169,95 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
         return result
 
     async def _async_update_data(self) -> OsmerData:
-        """Fetch data from OSMER FVG API."""
+        """Fetch data from OSMER FVG API with retry logic."""
+
+        _LOGGER.debug(
+            "Starting data update for station %s, sensors: %s",
+            self.station_id,
+            list(self.enabled_sensors),
+        )
 
         try:
             # Load cache on first call
             if not self._cache_loaded:
                 await self._async_load_cache()
+                _LOGGER.debug("Cache loaded for station %s", self.station_id)
 
-            # 1. Recupera i dati della stazione (da cache o API)
+            # 1. Recupera i dati della stazione (da cache o API con retry)
             if self._station is None:
-                # Prova a caricare da cache
                 self._station = self._get_cached_station()
                 if self._station is None:
-                    # Carica da API
-                    self._station = await self.client.get_station(self.station_id)
-                    # Salva in cache
-                    self._cache_data["station"] = self._station.__dict__
-                    await self._async_save_cache()
+                    self._station = await self._fetch_with_retry(
+                        self.client.get_station,
+                        self.station_id,
+                        operation_name="station data",
+                    )
+                    if self._station:
+                        self._cache_data["station"] = self._station.__dict__
+                        await self._async_save_cache()
+                        _LOGGER.debug("Fetched station %s from API", self.station_id)
 
-            # 2. Recupera l'elenco dei sensori (da cache o API)
+            # 2. Recupera l'elenco dei sensori (da cache o API con retry)
             if self._sensors_dict is None:
                 self._sensors_dict = self._get_cached_sensors()
                 if not self._sensors_dict:
-                    # Carica da API
-                    sensors = await self.client.get_sensors(self.station_id)
-                    self._sensors_dict = {
-                        sensor.code: sensor
-                        for sensor in sensors
-                        if sensor.code in self.enabled_sensors
-                    }
-                    # Salva in cache
-                    self._cache_data["sensors"] = {
-                        code: sensor.__dict__
-                        for code, sensor in self._sensors_dict.items()
-                    }
-                    await self._async_save_cache()
-
-            # 3. Scarica SOLO le misurazioni per i sensori abilitati
-            measures_list = await asyncio.gather(
-                *[
-                    self.client.get_latest_measure(
+                    sensors = await self._fetch_with_retry(
+                        self.client.get_sensors,
                         self.station_id,
-                        sensor,
+                        operation_name="sensors list",
                     )
-                    for sensor in self._sensors_dict.values()
-                ],
-                return_exceptions=True,
-            )
+                    if sensors:
+                        self._sensors_dict = {
+                            sensor.code: sensor
+                            for sensor in sensors
+                            if sensor.code in self.enabled_sensors
+                        }
+                        self._cache_data["sensors"] = {
+                            code: sensor.__dict__
+                            for code, sensor in self._sensors_dict.items()
+                        }
+                        await self._async_save_cache()
+                        _LOGGER.debug("Fetched %d sensors for station %s",
+                                    len(sensors), self.station_id)
 
+            # 3. Scarica le misurazioni con retry per ogni sensore
             measures_dict: dict[str, Measure] = {}
-
-            for sensor_code, measure in zip(
-                self._sensors_dict.keys(),
-                measures_list,
-            ):
-                if isinstance(measure, Measure):
-                    measures_dict[sensor_code] = measure
+            
+            for sensor_code, sensor in self._sensors_dict.items():
+                for attempt in range(self._retry_count):
+                    try:
+                        measure = await asyncio.wait_for(
+                            self.client.get_latest_measure(self.station_id, sensor),
+                            timeout=self._timeout,
+                        )
+                        if measure:
+                            measures_dict[sensor_code] = measure
+                            _LOGGER.debug(
+                                "Fetched measure for sensor %s: %s = %s",
+                                sensor_code,
+                                sensor.name,
+                                measure.value,
+                            )
+                        break
+                    except (TimeoutError, asyncio.CancelledError) as err:
+                        _LOGGER.warning(
+                            "Attempt %d/%d timeout for sensor %s: %s",
+                            attempt + 1,
+                            self._retry_count,
+                            sensor_code,
+                            err,
+                        )
+                        if attempt < self._retry_count - 1:
+                            await asyncio.sleep(self._retry_delay)
+                    except Exception:  # noqa: BLE001
+                        _LOGGER.warning(
+                            "Attempt %d/%d failed for sensor %s",
+                            attempt + 1,
+                            self._retry_count,
+                            sensor_code,
+                        )
+                        if attempt < self._retry_count - 1:
+                            await asyncio.sleep(self._retry_delay)
 
             # 4. Determina la zona meteo solo la prima volta
             if self._zone is None:
@@ -197,16 +266,136 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
                     self._station.longitude,
                     self._station.altitude,
                 )
+                _LOGGER.debug("Determined forecast zone: %s", self._zone)
 
-            # 5. Scarica le previsioni meteo
-            forecasts = await self.client.get_forecasts(self._zone)
+            # 5. Scarica le previsioni meteo con retry
+            forecasts = []
+            for attempt in range(self._retry_count):
+                try:
+                    forecasts = await asyncio.wait_for(
+                        self.client.get_forecasts(self._zone),
+                        timeout=self._timeout,
+                    )
+                    if forecasts:
+                        _LOGGER.debug("Fetched %d forecast days", len(forecasts))
+                        break
+                except (TimeoutError, asyncio.CancelledError):
+                    _LOGGER.warning(
+                        "Attempt %d/%d timeout for forecasts",
+                        attempt + 1,
+                        self._retry_count,
+                    )
+                    if attempt < self._retry_count - 1:
+                        await asyncio.sleep(self._retry_delay)
+                except Exception:  # noqa: BLE001
+                    _LOGGER.warning(
+                        "Attempt %d/%d failed for forecasts",
+                        attempt + 1,
+                        self._retry_count,
+                    )
+                    if attempt < self._retry_count - 1:
+                        await asyncio.sleep(self._retry_delay)
 
-            return OsmerData(
+            # Log completion
+            _LOGGER.debug(
+                "Data update completed for station %s: %d sensors, %d forecasts",
+                self.station_id,
+                len(measures_dict),
+                len(forecasts),
+            )
+
+            # Store last known successful data
+            result = OsmerData(
                 station=self._station,
                 sensors=self._sensors_dict,
                 measures=measures_dict,
                 forecasts=forecasts,
             )
+            self._last_known_data = result
+            self._osmer_last_update_success = datetime.now(UTC)
 
-        except Exception as err:
-            raise UpdateFailed(f"Error communicating with API: {err}") from err
+            return result
+
+        except Exception:
+            _LOGGER.exception(
+                "Error updating data for station %s",
+                self.station_id,
+            )
+            
+            # Check if we have stale data (beyond offline threshold)
+            now = datetime.now(UTC)
+            if (
+                self._last_known_data is not None
+                and self._osmer_last_update_success is not None
+                and (now - self._osmer_last_update_success) > self._offline_threshold
+            ):
+                _LOGGER.warning(
+                    "Using stale data for station %s (last update: %s)",
+                    self.station_id,
+                    self._osmer_last_update_success.isoformat(),
+                )
+                # Return last known data even if stale
+                return self._last_known_data
+            
+            # If we have no data at all, raise the error
+            if self._last_known_data is None:
+                raise UpdateFailed("Error communicating with API")
+            
+            # Return last known data
+            return self._last_known_data
+
+    async def _fetch_with_retry(
+        self,
+        func: Any,
+        *args: Any,
+        operation_name: str,
+    ) -> Any:
+        """Execute function with retry logic."""
+        last_error = None
+        for attempt in range(self._retry_count):
+            try:
+                result = await asyncio.wait_for(
+                    func(*args),
+                    timeout=self._timeout,
+                )
+                return result
+            except (TimeoutError, asyncio.CancelledError) as err:
+                last_error = err
+                _LOGGER.warning(
+                    "Attempt %d/%d timeout for %s",
+                    attempt + 1,
+                    self._retry_count,
+                    operation_name,
+                )
+                if attempt < self._retry_count - 1:
+                    await asyncio.sleep(self._retry_delay)
+            except Exception as err:  # noqa: BLE001
+                last_error = err
+                _LOGGER.warning(
+                    "Attempt %d/%d failed for %s",
+                    attempt + 1,
+                    self._retry_count,
+                    operation_name,
+                )
+                if attempt < self._retry_count - 1:
+                    await asyncio.sleep(self._retry_delay)
+        
+        _LOGGER.error(
+            "All %d attempts failed for %s",
+            self._retry_count,
+            operation_name,
+        )
+        raise last_error
+
+    @property
+    def is_offline(self) -> bool:
+        """Check if coordinator is in offline mode (using stale data)."""
+        if self._osmer_last_update_success is None:
+            return False
+        now = datetime.now(UTC)
+        return (now - self._osmer_last_update_success) > self._offline_threshold
+
+    @property
+    def osmer_last_update_success(self) -> datetime | None:
+        """Return timestamp of last successful update."""
+        return self._osmer_last_update_success

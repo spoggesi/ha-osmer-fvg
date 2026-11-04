@@ -39,6 +39,7 @@ async def async_setup_entry(
         client,
         station_id=entry.data["station_id"],
         enabled_sensors=enabled_sensors,
+        options=entry.options,
     )
 
     await coordinator.async_config_entry_first_refresh()

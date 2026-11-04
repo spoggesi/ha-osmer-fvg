@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -18,6 +19,8 @@ from homeassistant.helpers.entity_platform import (
 
 from .const import DOMAIN, MONITORED_SENSORS, VERSION
 from .coordinator import OsmerDataUpdateCoordinator
+
+_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
@@ -94,6 +97,8 @@ class OsmerSensor(
         station = coordinator.data.station
 
         self._attr_unique_id = f"osmer_{station.id}_{sensor.code}"
+        self._last_known_value: float | None = None
+        self._last_known_timestamp: str | None = None
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -112,14 +117,26 @@ class OsmerSensor(
 
     @property
     def native_value(self) -> float | None:
-        """Return sensor value."""
+        """Return sensor value (with offline support)."""
 
         measure = self.coordinator.data.measures.get(self.sensor_code)
 
-        if measure is None:
-            return None
+        if measure is not None:
+            # Update last known value
+            self._last_known_value = measure.value
+            self._last_known_timestamp = measure.timestamp.isoformat()
+            return measure.value
 
-        return measure.value
+        # If no measure, return last known value if available (offline mode)
+        if self._last_known_value is not None and self.coordinator.is_offline:
+            _LOGGER.debug(
+                "Sensor %s returning last known value (offline mode): %s",
+                self._attr_unique_id,
+                self._last_known_value,
+            )
+            return self._last_known_value
+
+        return None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -129,7 +146,7 @@ class OsmerSensor(
         sensor = self.coordinator.data.sensors[self.sensor_code]
         measure = self.coordinator.data.measures.get(self.sensor_code)
 
-        return {
+        attrs = {
             "station": station.name,
             "station_id": station.id,
             "sensor_code": sensor.code,
@@ -138,7 +155,32 @@ class OsmerSensor(
             "longitude": station.longitude,
             "altitude": station.altitude,
             "last_update": (measure.timestamp.isoformat() if measure else None),
+            "last_known_value": self._last_known_value,
+            "last_known_timestamp": self._last_known_timestamp,
+            "is_offline": self.coordinator.is_offline,
+            "offline_since": (
+                self.coordinator.osmer_last_update_success.isoformat()
+                if self.coordinator.is_offline and self.coordinator.osmer_last_update_success
+                else None
+            ),
         }
+        
+        return attrs
+
+    async def async_added_to_hass(self) -> None:
+        """Initialize last known value when entity is added."""
+        await super().async_added_to_hass()
+        
+        # Initialize last known value from current data
+        measure = self.coordinator.data.measures.get(self.sensor_code)
+        if measure:
+            self._last_known_value = measure.value
+            self._last_known_timestamp = measure.timestamp.isoformat()
+            _LOGGER.debug(
+                "Initialized sensor %s with value: %s",
+                self._attr_unique_id,
+                self._last_known_value,
+            )
 
 
 class OsmerLastUpdateSensor(
@@ -200,6 +242,15 @@ class OsmerLastUpdateSensor(
         """Return extra state attributes."""
 
         if not self.coordinator.data or not self.coordinator.data.measures:
+            if self.coordinator.is_offline and self.coordinator.osmer_last_update_success:
+                latest_timestamp = self.coordinator.osmer_last_update_success
+                return {
+                    "iso_format": latest_timestamp.isoformat(),
+                    "datetime": latest_timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                    "friendly": latest_timestamp.strftime("%d/%m/%Y %H:%M:%S"),
+                    "is_offline": True,
+                    "offline_since": latest_timestamp.isoformat(),
+                }
             return {}
 
         latest_timestamp = None
@@ -214,5 +265,14 @@ class OsmerLastUpdateSensor(
                 "iso_format": latest_timestamp.isoformat(),
                 "datetime": latest_timestamp.strftime("%Y-%m-%d %H:%M:%S"),
                 "friendly": latest_timestamp.strftime("%d/%m/%Y %H:%M:%S"),
+                "is_offline": self.coordinator.is_offline,
             }
         return {}
+
+    @property
+    def state(self) -> str | None:
+        """Return the state with offline indicator."""
+        value = self.native_value
+        if value and self.coordinator.is_offline:
+            return f"{value} (offline)"
+        return value

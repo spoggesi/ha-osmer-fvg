@@ -32,10 +32,12 @@ class OsmerApiClient:
     def __init__(
         self,
         session: aiohttp.ClientSession,
+        timeout: int = 30,
     ) -> None:
         """Initialize client."""
 
         self._session = session
+        self._timeout = timeout
         self._xml_cache: str | None = None
         self._xml_cache_time: datetime | None = None
 
@@ -47,17 +49,21 @@ class OsmerApiClient:
 
         url = f"{BASE_URL}{endpoint}"
 
-        _LOGGER.debug("GET %s", url)
+        _LOGGER.debug("API GET request: %s", url)
 
         try:
             async with self._session.get(
                 url,
-                timeout=20,
+                timeout=self._timeout,
             ) as response:
                 response.raise_for_status()
-                return await response.json()
+                data = await response.json()
+                _LOGGER.debug("API response from %s: status=%s, size=%d bytes",
+                             url, response.status, len(str(data)))
+                return data
 
         except aiohttp.ClientError as err:
+            _LOGGER.error("API connection error for %s: %s", url, err)
             raise OsmerConnectionError(f"Unable to connect to {url}") from err
 
     async def get_stations(self) -> list[Station]:
