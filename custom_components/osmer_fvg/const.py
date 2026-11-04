@@ -8,7 +8,7 @@ from homeassistant.components.sensor import (
 )
 
 DOMAIN = "osmer_fvg"
-VERSION = "0.4.2"
+VERSION = "0.4.3"
 
 # Multi-station support
 CONF_STATION_IDS = "station_ids"
@@ -30,6 +30,7 @@ CONF_RETRY_DELAY = "retry_delay"
 CONF_TIMEOUT = "timeout"
 CONF_OFFLINE_THRESHOLD = "offline_threshold"
 CONF_ENABLED_SENSORS = "enabled_sensors"
+CONF_ENABLE_ALERT_NOTIFICATIONS = "enable_alert_notifications"
 
 # Default enabled sensors
 DEFAULT_ENABLED_SENSORS: list[str] = [

@@ -18,11 +18,13 @@ from homeassistant.helpers.update_coordinator import (
 from .api.client import OsmerApiClient
 from .api.models import Measure, OsmerAlert, OsmerForecastDay, Sensor, Station
 from .const import (
+    CONF_ENABLE_ALERT_NOTIFICATIONS,
     CONF_OFFLINE_THRESHOLD,
     CONF_RETRY_COUNT,
     CONF_RETRY_DELAY,
     CONF_SCAN_INTERVAL,
     CONF_TIMEOUT,
+    DEFAULT_ENABLE_ALERT_NOTIFICATIONS,
     DEFAULT_OFFLINE_THRESHOLD,
     DEFAULT_RETRY_COUNT,
     DEFAULT_RETRY_DELAY,
@@ -116,6 +118,12 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
         # Last known data for offline support
         self._last_known_data: OsmerData | None = None
         self._osmer_last_update_success: datetime | None = None
+        
+        # Alert notification tracking
+        self._last_known_alerts: list[OsmerAlert] = []
+        self._alert_notifications_enabled: bool = (
+            self._options.get(CONF_ENABLE_ALERT_NOTIFICATIONS, DEFAULT_ENABLE_ALERT_NOTIFICATIONS)
+        )
 
     async def _async_load_cache(self) -> None:
         """Load coordinator cache from disk."""
@@ -441,6 +449,10 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
             self._last_known_data = result
             self._osmer_last_update_success = datetime.now(UTC)
 
+            # Check for new alerts and send notifications
+            if self._alert_notifications_enabled:
+                await self._async_check_alert_notifications(alerts)
+
             return result
 
         except Exception as err:  # noqa: BLE001 - We want to catch all exceptions in update
@@ -532,6 +544,117 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
         )
         reset_request_id()
         raise last_error
+
+    async def _async_check_alert_notifications(
+        self, current_alerts: list[OsmerAlert]
+    ) -> None:
+        """Check for new or changed alerts and send notifications."""
+        request_id = set_request_id()
+        
+        if not current_alerts:
+            # No current alerts, check if we had alerts before
+            if self._last_known_alerts:
+                coordinator_logger.info(
+                    "All alerts cleared",
+                    request_id=request_id,
+                )
+                # Send notification that alerts are cleared
+                await self._async_send_alert_notification(
+                    "✅ Tutte le allerte sono state revocate",
+                    "Non ci sono più allerte meteo attive.",
+                    "green",
+                    []
+                )
+            self._last_known_alerts = []
+            return
+        
+        # Compare with last known alerts
+        if not self._last_known_alerts:
+            # First time we have alerts, notify about all of them
+            for alert in current_alerts:
+                zones = [alert.zone] if alert.zone else []
+                await self._async_send_alert_notification(
+                    f"🚨 Nuova allerta: {alert.event_type}",
+                    alert.description or "Nessuna descrizione disponibile",
+                    alert.level or "unknown",
+                    zones
+                )
+        else:
+            # Check for new alerts
+            old_alert_ids = {alert.id for alert in self._last_known_alerts}
+            new_alert_ids = {alert.id for alert in current_alerts}
+            
+            # New alerts
+            new_alerts = [alert for alert in current_alerts if alert.id not in old_alert_ids]
+            for alert in new_alerts:
+                zones = [alert.zone] if alert.zone else []
+                await self._async_send_alert_notification(
+                    f"🚨 Nuova allerta: {alert.event_type}",
+                    alert.description or "Nessuna descrizione disponibile",
+                    alert.level or "unknown",
+                    zones
+                )
+            
+            # Cleared alerts
+            cleared_alerts = [alert for alert in self._last_known_alerts if alert.id not in new_alert_ids]
+            for alert in cleared_alerts:
+                zones = [alert.zone] if alert.zone else []
+                await self._async_send_alert_notification(
+                    f"✅ Allerta revocata: {alert.event_type}",
+                    f"L'allerta per {alert.zone} è stata revocata.",
+                    "green",
+                    zones
+                )
+        
+        # Update last known alerts
+        self._last_known_alerts = current_alerts.copy()
+
+    async def _async_send_alert_notification(
+        self, title: str, message: str, level: str, zones: list[str]
+    ) -> None:
+        """Send an alert notification through Home Assistant."""
+        request_id = set_request_id()
+        
+        # Determine emoji based on level
+        level_emoji = {
+            "green": "✅",
+            "yellow": "⚠️",
+            "orange": "🟠",
+            "red": "🔴",
+        }.get(level.lower(), "🔵")
+        
+        full_title = f"{level_emoji} OSMER FVG - {title}"
+        full_message = f"{message}\n\nLivello: {level.upper()}\nZones: {', '.join(zones) if zones else 'Tutte'}"
+        
+        coordinator_logger.info(
+            "Sending alert notification",
+            title=full_title,
+            level=level,
+            zones=zones,
+            request_id=request_id,
+        )
+        
+        try:
+            await self.hass.services.async_call(
+                "notify",
+                "notify",
+                {
+                    "title": full_title,
+                    "message": full_message,
+                    "data": {
+                        "tag": DOMAIN,
+                        "priority": "high" if level.lower() in ["orange", "red"] else "normal",
+                        "level": level,
+                        "zones": zones,
+                    },
+                },
+            )
+        except Exception as err:
+            coordinator_logger.warning(
+                "Failed to send alert notification",
+                error=str(err),
+                request_id=request_id,
+            )
 
     @property
     def is_offline(self) -> bool:

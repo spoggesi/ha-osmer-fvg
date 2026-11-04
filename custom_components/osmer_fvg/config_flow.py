@@ -573,6 +573,8 @@ class OsmerFvgOptionsFlowHandler(config_entries.OptionsFlow):
             int(DEFAULT_OFFLINE_THRESHOLD.total_seconds() / 60),
         )
 
+        from .const import CONF_ENABLE_ALERT_NOTIFICATIONS
+        
         sensor_options = {
             code: f"{config['name']} ({code})"
             for code, config in MONITORED_SENSORS.items()
@@ -581,6 +583,9 @@ class OsmerFvgOptionsFlowHandler(config_entries.OptionsFlow):
         # Check if multi-station is enabled
         is_multi_station = self.config_entry.options.get(CONF_MULTI_STATION, False)
         current_station_ids = self.config_entry.options.get(CONF_STATION_IDS, [])
+        current_alert_notifications = self.config_entry.options.get(
+            CONF_ENABLE_ALERT_NOTIFICATIONS, True
+        )
 
         schema = vol.Schema(
             {
@@ -601,6 +606,10 @@ class OsmerFvgOptionsFlowHandler(config_entries.OptionsFlow):
                         for s in self.flow_context.stations
                     }
                 ) if is_multi_station and self.flow_context.stations else [],
+                vol.Optional(
+                    CONF_ENABLE_ALERT_NOTIFICATIONS,
+                    default=current_alert_notifications,
+                ): bool,
                 vol.Optional(
                     CONF_SCAN_INTERVAL,
                     default=current_scan_interval,

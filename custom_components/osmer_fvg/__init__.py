@@ -12,6 +12,7 @@ from homeassistant.helpers.aiohttp_client import (
 from .api.client import OsmerApiClient
 from .const import DOMAIN
 from .coordinator import OsmerDataUpdateCoordinator
+from .services import async_setup_services
 
 # Import diagnostics module to ensure it's loaded
 try:
@@ -70,6 +71,9 @@ async def async_setup_entry(
 
     # Ascolta le modifiche alle opzioni per ricaricare l'integrazione
     entry.async_on_unload(entry.add_update_listener(async_update_options))
+    
+    # Register services
+    await async_setup_services(hass)
 
     return True
 
