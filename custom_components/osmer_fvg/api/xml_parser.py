@@ -22,8 +22,11 @@ def _parse_temp_value(val_str: str | None) -> float | None:
         parts = val_str.split("/")
         try:
             floats = [float(p.strip()) for p in parts if p.strip()]
-            if len(floats) >= 1:
+            if len(floats) >= 2:  # Require at least 2 valid numbers for a range
                 return sum(floats) / len(floats)
+            elif len(floats) == 1:
+                # Single valid number with trailing/leading slash - treat as invalid
+                return None
         except ValueError:
             return None
     try:
@@ -118,6 +121,7 @@ def parse_osmer_forecast_xml(
             z_nome = str(z.attrib.get("nome", "")).strip().upper()
             z_id = str(z.attrib.get("id", "")).strip().upper()
             z_clean = z_nome.replace("Z", "").replace("F", "")
+            z_id_clean = z_id.replace("Z", "").replace("F", "")
 
             # Skip empty zone identifiers
             if not z_clean and not z_id and z_nome != target_zone.upper():
@@ -125,7 +129,7 @@ def parse_osmer_forecast_xml(
 
             if (
                 z_clean == clean_num
-                or z_id == clean_num
+                or z_id_clean == clean_num
                 or z_nome == target_zone.upper()
                 or z_id == target_zone.upper()
             ):

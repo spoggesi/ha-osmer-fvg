@@ -19,5 +19,10 @@
         }
     },
 
-    "postCreateCommand": "python -m pip install --upgrade pip && pip install aiohttp pytest pytest-asyncio pytest-cov pytest-homeassistant-custom-component ruff homeassistant"
+    "containerEnv": {
+        "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+        "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt"
+    },
+
+    "postCreateCommand": "sudo cp /workspaces/ha-osmer-fvg/kaspersky.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates && python -m pip install --upgrade pip && pip install aiohttp pytest pytest-asyncio pytest-cov pytest-homeassistant-custom-component ruff homeassistant"
 }
