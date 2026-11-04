@@ -33,7 +33,6 @@ def calculate_dew_point(
         a = 17.625
         b = 243.04
 
-        # Calculate intermediate values
         ln_rh = math.log(humidity / 100.0)
         numerator = b * (ln_rh + (a * temperature) / (b + temperature))
         denominator = a - (ln_rh + (a * temperature) / (b + temperature))
@@ -50,7 +49,8 @@ def calculate_heat_index(
 ) -> float | None:
     """Calculate heat index (feels like temperature) in Celsius.
 
-    Based on NWS heat index formula, converted from Fahrenheit to Celsius.
+    Based on NWS algorithm. Heat Index is only applicable for warm temperatures (>= 26.7°C / 80°F).
+    Below 26.7°C, relative humidity does not cause heat stress, so ambient temperature is returned.
 
     Args:
         temperature: Temperature in Celsius
@@ -65,39 +65,50 @@ def calculate_heat_index(
     if humidity < 0 or humidity > 100:
         return None
 
-    # Convert to Fahrenheit for calculation
+    # L'indice di calore ha senso solo a partire da 26.7°C (80°F).
+    # Al di sotto di questa soglia, la temperatura percepita è la temperatura reale.
+    if temperature < 26.7:
+        return round(temperature, 1)
+
+    # Conversione in Fahrenheit per le equazioni NWS
     temp_f = (temperature * 9 / 5) + 32
 
     try:
-        # NWS heat index formula
-        hi_f = (
-            -42.379
-            + 2.04901523 * temp_f
-            + 10.14333127 * humidity
-            - 0.22475541 * temp_f * humidity
-            - 6.83783e-3 * temp_f**2
-            - 5.481717e-2 * humidity**2
-            + 1.22874e-3 * temp_f**2 * humidity
-            + 8.5282e-4 * temp_f * humidity**2
-            - 1.99e-6 * temp_f**2 * humidity**2
-        )
+        # Equazione semplice di Steadman
+        hi_simple = 0.5 * (temp_f + 61.0 + ((temp_f - 68.0) * 1.2) + (humidity * 0.094))
 
-        # If humidity is very low, use simpler formula
-        if humidity < 13 and temp_f >= 80:
+        if hi_simple < 80.0:
+            hi_f = hi_simple
+        else:
+            # Regressione completa Rothfusz (NWS)
             hi_f = (
                 -42.379
                 + 2.04901523 * temp_f
                 + 10.14333127 * humidity
                 - 0.22475541 * temp_f * humidity
+                - 6.83783e-3 * (temp_f**2)
+                - 5.481717e-2 * (humidity**2)
+                + 1.22874e-3 * (temp_f**2) * humidity
+                + 8.5282e-4 * temp_f * (humidity**2)
+                - 1.99e-6 * (temp_f**2) * (humidity**2)
             )
 
-        # Convert back to Celsius
-        if hi_f is not None:
-            heat_index_c = (hi_f - 32) * 5 / 9
-            return round(heat_index_c, 1)
-        return None
+            # Correzione NWS per aria molto secca
+            if humidity < 13 and 80.0 <= temp_f <= 112.0:
+                adjustment = ((13.0 - humidity) / 4.0) * math.sqrt(
+                    (17.0 - abs(temp_f - 95.0)) / 17.0
+                )
+                hi_f -= adjustment
+            # Correzione NWS per aria molto umida
+            elif humidity > 85 and 80.0 <= temp_f <= 87.0:
+                adjustment = ((humidity - 85.0) / 10.0) * ((87.0 - temp_f) / 5.0)
+                hi_f += adjustment
+
+        heat_index_c = (hi_f - 32) * 5 / 9
+        # L'umidità non può abbassare la temperatura percepita estiva al di sotto di quella reale
+        return round(max(heat_index_c, temperature), 1)
     except (ValueError, TypeError):
-        return None
+        return round(temperature, 1)
 
 
 def calculate_wind_chill(
@@ -106,9 +117,9 @@ def calculate_wind_chill(
 ) -> float | None:
     """Calculate wind chill in Celsius.
 
-    Wind chill is only calculated when temperature <= 10°C and wind speed >= 4.8 km/h
+    Wind chill is only calculated when temperature <= 10°C and wind speed >= 4.8 km/h.
     Formula: WCI = 13.12 + 0.6215 * T - 11.37 * V^0.16 + 0.3965 * T * V^0.16
-    where T is temperature in °C and V is wind speed in km/h
+    where T is temperature in °C and V is wind speed in km/h.
 
     Args:
         temperature: Temperature in Celsius
@@ -120,10 +131,10 @@ def calculate_wind_chill(
     if temperature is None or wind_speed is None:
         return None
 
-    # Convert m/s to km/h
+    # Conversione m/s in km/h
     wind_speed_kmh = wind_speed * 3.6
 
-    # Wind chill is only calculated for cold conditions
+    # Il Wind Chill si calcola solo in condizioni di freddo e vento attivo
     if temperature > 10.0 or wind_speed_kmh < 4.8:
         return None
 
@@ -161,13 +172,13 @@ def calculate_absolute_humidity(
         return None
 
     try:
-        # Calculate saturation vapor pressure in hPa
+        # Pressione di vapore saturo in hPa
         es = 6.112 * math.exp((17.67 * temperature) / (temperature + 243.5))
 
-        # Calculate actual vapor pressure in hPa
+        # Pressione di vapore reale in hPa
         ea = es * (relative_humidity / 100.0)
 
-        # Calculate absolute humidity in g/m³
+        # Umidità assoluta in g/m³
         absolute_humidity = (ea * 2.16679) / (273.15 + temperature)
 
         return round(absolute_humidity, 1)
@@ -188,7 +199,6 @@ def calculate_derived_sensors(
     """
     results: dict[str, float | None] = {}
 
-    # Extract base values
     temperature = measures.get("T")
     humidity = measures.get("U")
     wind_speed = measures.get("VV")
@@ -197,7 +207,6 @@ def calculate_derived_sensors(
     humidity_value = humidity.value if humidity else None
     wind_speed_value = wind_speed.value if wind_speed else None
 
-    # Calculate derived values
     results["DEW_POINT"] = calculate_dew_point(temp_value, humidity_value)
     results["HEAT_INDEX"] = calculate_heat_index(temp_value, humidity_value)
     results["WIND_CHILL"] = calculate_wind_chill(temp_value, wind_speed_value)
