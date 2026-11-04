@@ -23,6 +23,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, VERSION
 from .coordinator import OsmerDataUpdateCoordinator
+from .logging import set_request_id, weather_logger
 
 
 async def async_setup_entry(
@@ -31,8 +32,17 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up OSMER weather entity."""
+    request_id = set_request_id()
 
     coordinator: OsmerDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
+    station = coordinator.data.station
+
+    weather_logger.info(
+        "Setting up weather entity",
+        station_id=station.id if station else None,
+        station_name=station.name if station else None,
+        request_id=request_id,
+    )
 
     async_add_entities([OsmerWeatherEntity(coordinator)])
 

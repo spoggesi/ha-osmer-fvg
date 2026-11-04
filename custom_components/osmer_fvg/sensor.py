@@ -21,7 +21,9 @@ from homeassistant.helpers.entity_platform import (
 from .const import DOMAIN, MONITORED_SENSORS, VERSION
 from .coordinator import OsmerDataUpdateCoordinator
 from .helpers.calculations import calculate_derived_sensors
+from .logging import sensor_logger
 
+# Keep standard logger for compatibility
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -31,13 +33,29 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up OSMER sensors."""
+    from .logging import set_request_id
+    request_id = set_request_id()
 
     coordinator: OsmerDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
+    station = coordinator.data.station
+
+    sensor_logger.info(
+        "Setting up sensors",
+        station_id=station.id if station else None,
+        station_name=station.name if station else None,
+        sensor_count=len(coordinator.data.sensors) if coordinator.data.sensors else 0,
+        request_id=request_id,
+    )
 
     entities: list[SensorEntity] = []
 
     for sensor_code in coordinator.data.sensors:
         if sensor_code not in MONITORED_SENSORS:
+            sensor_logger.debug(
+                "Skipping unmonitored sensor",
+                sensor_code=sensor_code,
+                request_id=request_id,
+            )
             continue
 
         sensor_config = MONITORED_SENSORS[sensor_code]
@@ -57,6 +75,18 @@ async def async_setup_entry(
                 description,
             )
         )
+        sensor_logger.debug(
+            "Added sensor entity",
+            sensor_code=sensor_code,
+            sensor_name=sensor_config["name"],
+            request_id=request_id,
+        )
+
+    sensor_logger.info(
+        "Total sensor entities",
+        count=len(entities),
+        request_id=request_id,
+    )
 
     # Add last update timestamp sensor
     timestamp_description = SensorEntityDescription(

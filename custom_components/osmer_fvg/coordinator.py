@@ -32,7 +32,9 @@ from .const import (
     VERSION,
 )
 from .forecast_zone import get_osmer_zone
+from .logging import coordinator_logger, reset_request_id, set_request_id
 
+# Keep standard logger for compatibility
 _LOGGER = logging.getLogger(__name__)
 
 # Cache configuration
@@ -117,21 +119,38 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
 
     async def _async_load_cache(self) -> None:
         """Load coordinator cache from disk."""
+        request_id = set_request_id()
         if self._cache_loaded:
+            coordinator_logger.debug(
+                "Cache already loaded, skipping",
+                station_id=self.station_id,
+                request_id=request_id,
+            )
             return
         stored = await self._cache_store.async_load()
         if stored:
             self._cache_data = stored
             self._cache_loaded = True
-            _LOGGER.debug("Loaded coordinator cache for station %s", self.station_id)
+            coordinator_logger.debug(
+                "Loaded coordinator cache",
+                station_id=self.station_id,
+                cache_version=self._cache_data.get("version"),
+                request_id=request_id,
+            )
 
     async def _async_save_cache(self) -> None:
         """Save coordinator cache to disk."""
+        request_id = set_request_id()
         self._cache_data["version"] = COORDINATOR_CACHE_VERSION
         self._cache_data["updated"] = datetime.now(UTC).isoformat()
         self._cache_data["version_integration"] = VERSION
         await self._cache_store.async_save(self._cache_data)
-        _LOGGER.debug("Saved coordinator cache for station %s", self.station_id)
+        coordinator_logger.debug(
+            "Saved coordinator cache",
+            station_id=self.station_id,
+            cache_size_bytes=len(str(self._cache_data)),
+            request_id=request_id,
+        )
 
     def _is_cache_valid(self, cache_type: str = "metadata") -> bool:
         """Check if cache is still valid for a specific type.
@@ -195,11 +214,15 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
 
     async def _async_update_data(self) -> OsmerData:
         """Fetch data from OSMER FVG API with retry logic."""
-
-        _LOGGER.debug(
-            "Starting data update for station %s, sensors: %s",
-            self.station_id,
-            list(self.enabled_sensors),
+        request_id = set_request_id()
+        coordinator_logger.info(
+            "Starting data update",
+            station_id=self.station_id,
+            enabled_sensors=list(self.enabled_sensors),
+            retry_count=self._retry_count,
+            retry_delay=self._retry_delay,
+            timeout=self._timeout,
+            request_id=request_id,
         )
 
         try:
@@ -213,6 +236,11 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
             if self._station is None:
                 if self._is_cache_valid("metadata"):
                     self._station = self._get_cached_station()
+                    coordinator_logger.debug(
+                        "Using cached station data",
+                        station_id=self.station_id,
+                        request_id=request_id,
+                    )
                 if self._station is None:
                     self._station = await self._fetch_with_retry(
                         self.client.get_station,
@@ -222,13 +250,24 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
                     if self._station:
                         self._cache_data["station"] = self._station.__dict__
                         await self._async_save_cache()
-                        _LOGGER.debug("Fetched station %s from API", self.station_id)
+                        coordinator_logger.info(
+                            "Fetched station from API",
+                            station_id=self.station_id,
+                            station_name=self._station.name,
+                            request_id=request_id,
+                        )
 
             # 2. Recupera l'elenco dei sensori (da cache o API con retry)
             # Usiamo TTL lungo per i metadati dei sensori
             if self._sensors_dict is None:
                 if self._is_cache_valid("metadata"):
                     self._sensors_dict = self._get_cached_sensors()
+                    coordinator_logger.debug(
+                        "Using cached sensors data",
+                        station_id=self.station_id,
+                        sensor_count=len(self._sensors_dict),
+                        request_id=request_id,
+                    )
                 if not self._sensors_dict:
                     sensors = await self._fetch_with_retry(
                         self.client.get_sensors,
@@ -246,8 +285,13 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
                             for code, sensor in self._sensors_dict.items()
                         }
                         await self._async_save_cache()
-                        _LOGGER.debug("Fetched %d sensors for station %s",
-                                    len(sensors), self.station_id)
+                        coordinator_logger.info(
+                            "Fetched sensors from API",
+                            station_id=self.station_id,
+                            total_sensors=len(sensors),
+                            enabled_sensors=len(self._sensors_dict),
+                            request_id=request_id,
+                        )
 
             # 3. Scarica le misurazioni con retry per ogni sensore
             measures_dict: dict[str, Measure] = {}
@@ -261,29 +305,35 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
                         )
                         if measure:
                             measures_dict[sensor_code] = measure
-                            _LOGGER.debug(
-                                "Fetched measure for sensor %s: %s = %s",
-                                sensor_code,
-                                sensor.name,
-                                measure.value,
+                            coordinator_logger.debug(
+                                "Fetched measure",
+                                sensor_code=sensor_code,
+                                sensor_name=sensor.name,
+                                value=measure.value,
+                                unit=measure.unit,
+                                attempt=attempt + 1,
+                                request_id=request_id,
                             )
                         break
                     except (TimeoutError, asyncio.CancelledError) as err:
-                        _LOGGER.warning(
-                            "Attempt %d/%d timeout for sensor %s: %s",
-                            attempt + 1,
-                            self._retry_count,
-                            sensor_code,
-                            err,
+                        coordinator_logger.warning(
+                            "Measure fetch timeout",
+                            sensor_code=sensor_code,
+                            attempt=attempt + 1,
+                            retry_count=self._retry_count,
+                            error=str(err),
+                            request_id=request_id,
                         )
                         if attempt < self._retry_count - 1:
                             await asyncio.sleep(self._retry_delay)
-                    except Exception:  # noqa: BLE001
-                        _LOGGER.warning(
-                            "Attempt %d/%d failed for sensor %s",
-                            attempt + 1,
-                            self._retry_count,
-                            sensor_code,
+                    except Exception as err:  # noqa: BLE001
+                        coordinator_logger.warning(
+                            "Measure fetch failed",
+                            sensor_code=sensor_code,
+                            attempt=attempt + 1,
+                            retry_count=self._retry_count,
+                            error=str(err),
+                            request_id=request_id,
                         )
                         if attempt < self._retry_count - 1:
                             await asyncio.sleep(self._retry_delay)
@@ -295,7 +345,14 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
                     self._station.longitude,
                     self._station.altitude,
                 )
-                _LOGGER.debug("Determined forecast zone: %s", self._zone)
+                coordinator_logger.debug(
+                    "Determined forecast zone",
+                    zone=self._zone,
+                    latitude=self._station.latitude,
+                    longitude=self._station.longitude,
+                    altitude=self._station.altitude,
+                    request_id=request_id,
+                )
 
             # 5. Scarica le previsioni meteo con retry
             forecasts = []
@@ -306,21 +363,32 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
                         timeout=self._timeout,
                     )
                     if forecasts:
-                        _LOGGER.debug("Fetched %d forecast days", len(forecasts))
+                        coordinator_logger.info(
+                            "Fetched forecasts",
+                            zone=self._zone,
+                            forecast_count=len(forecasts),
+                            request_id=request_id,
+                        )
                         break
-                except (TimeoutError, asyncio.CancelledError):
-                    _LOGGER.warning(
-                        "Attempt %d/%d timeout for forecasts",
-                        attempt + 1,
-                        self._retry_count,
+                except (TimeoutError, asyncio.CancelledError) as err:
+                    coordinator_logger.warning(
+                        "Forecast fetch timeout",
+                        zone=self._zone,
+                        attempt=attempt + 1,
+                        retry_count=self._retry_count,
+                        error=str(err),
+                        request_id=request_id,
                     )
                     if attempt < self._retry_count - 1:
                         await asyncio.sleep(self._retry_delay)
-                except Exception:  # noqa: BLE001
-                    _LOGGER.warning(
-                        "Attempt %d/%d failed for forecasts",
-                        attempt + 1,
-                        self._retry_count,
+                except Exception as err:  # noqa: BLE001
+                    coordinator_logger.warning(
+                        "Forecast fetch failed",
+                        zone=self._zone,
+                        attempt=attempt + 1,
+                        retry_count=self._retry_count,
+                        error=str(err),
+                        request_id=request_id,
                     )
                     if attempt < self._retry_count - 1:
                         await asyncio.sleep(self._retry_delay)
@@ -334,32 +402,41 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
                         timeout=self._timeout,
                     )
                     if alerts:
-                        _LOGGER.debug("Fetched %d alerts", len(alerts))
+                        coordinator_logger.info(
+                            "Fetched alerts",
+                            alert_count=len(alerts),
+                            request_id=request_id,
+                        )
                     break
-                except (TimeoutError, asyncio.CancelledError):
-                    _LOGGER.warning(
-                        "Attempt %d/%d timeout for alerts",
-                        attempt + 1,
-                        self._retry_count,
+                except (TimeoutError, asyncio.CancelledError) as err:
+                    coordinator_logger.warning(
+                        "Alert fetch timeout",
+                        attempt=attempt + 1,
+                        retry_count=self._retry_count,
+                        error=str(err),
+                        request_id=request_id,
                     )
                     if attempt < self._retry_count - 1:
                         await asyncio.sleep(self._retry_delay)
-                except Exception:  # noqa: BLE001
-                    _LOGGER.warning(
-                        "Attempt %d/%d failed for alerts",
-                        attempt + 1,
-                        self._retry_count,
+                except Exception as err:  # noqa: BLE001
+                    coordinator_logger.warning(
+                        "Alert fetch failed",
+                        attempt=attempt + 1,
+                        retry_count=self._retry_count,
+                        error=str(err),
+                        request_id=request_id,
                     )
                     if attempt < self._retry_count - 1:
                         await asyncio.sleep(self._retry_delay)
 
             # Log completion
-            _LOGGER.debug(
-                "Data update completed for station %s: %d sensors, %d forecasts, %d alerts",
-                self.station_id,
-                len(measures_dict),
-                len(forecasts),
-                len(alerts),
+            coordinator_logger.info(
+                "Data update completed",
+                station_id=self.station_id,
+                measures_count=len(measures_dict),
+                forecasts_count=len(forecasts),
+                alerts_count=len(alerts),
+                request_id=request_id,
             )
 
             # Store last known successful data
@@ -375,11 +452,14 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
 
             return result
 
-        except Exception:
-            _LOGGER.exception(
-                "Error updating data for station %s",
-                self.station_id,
+        except Exception as err:  # noqa: BLE001 - We want to catch all exceptions in update
+            coordinator_logger.exception(
+                "Error updating data",
+                station_id=self.station_id,
+                error=str(err),
+                request_id=request_id,
             )
+            reset_request_id()
             
             # Check if we have stale data (beyond offline threshold)
             now = datetime.now(UTC)
@@ -388,10 +468,12 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
                 and self._osmer_last_update_success is not None
                 and (now - self._osmer_last_update_success) > self._offline_threshold
             ):
-                _LOGGER.warning(
-                    "Using stale data for station %s (last update: %s)",
-                    self.station_id,
-                    self._osmer_last_update_success.isoformat(),
+                coordinator_logger.warning(
+                    "Using stale data",
+                    station_id=self.station_id,
+                    last_update=self._osmer_last_update_success.isoformat(),
+                    offline_threshold=self._offline_threshold,
+                    request_id=request_id,
                 )
                 # Return last known data even if stale
                 return self._last_known_data
@@ -410,6 +492,7 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
         operation_name: str,
     ) -> Any:
         """Execute function with retry logic."""
+        request_id = set_request_id()
         last_error = None
         for attempt in range(self._retry_count):
             try:
@@ -417,33 +500,46 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
                     func(*args),
                     timeout=self._timeout,
                 )
+                coordinator_logger.debug(
+                    "Fetch with retry succeeded",
+                    operation=operation_name,
+                    attempt=attempt + 1,
+                    request_id=request_id,
+                )
                 return result
             except (TimeoutError, asyncio.CancelledError) as err:
                 last_error = err
-                _LOGGER.warning(
-                    "Attempt %d/%d timeout for %s",
-                    attempt + 1,
-                    self._retry_count,
-                    operation_name,
+                coordinator_logger.warning(
+                    "Fetch with retry timeout",
+                    operation=operation_name,
+                    attempt=attempt + 1,
+                    retry_count=self._retry_count,
+                    error=str(err),
+                    request_id=request_id,
                 )
                 if attempt < self._retry_count - 1:
                     await asyncio.sleep(self._retry_delay)
             except Exception as err:  # noqa: BLE001
                 last_error = err
-                _LOGGER.warning(
-                    "Attempt %d/%d failed for %s",
-                    attempt + 1,
-                    self._retry_count,
-                    operation_name,
+                coordinator_logger.warning(
+                    "Fetch with retry failed",
+                    operation=operation_name,
+                    attempt=attempt + 1,
+                    retry_count=self._retry_count,
+                    error=str(err),
+                    request_id=request_id,
                 )
                 if attempt < self._retry_count - 1:
                     await asyncio.sleep(self._retry_delay)
         
-        _LOGGER.error(
-            "All %d attempts failed for %s",
-            self._retry_count,
-            operation_name,
+        coordinator_logger.error(
+            "All retry attempts failed",
+            operation=operation_name,
+            retry_count=self._retry_count,
+            error=str(last_error) if last_error else "Unknown error",
+            request_id=request_id,
         )
+        reset_request_id()
         raise last_error
 
     @property

@@ -21,6 +21,14 @@ try:
 except ImportError:
     _DIAGNOSTICS_AVAILABLE = False
 
+# Import logging module to ensure it's loaded
+try:
+    from . import logging as _logging  # noqa: F401
+
+    _LOGGING_AVAILABLE = True
+except ImportError:
+    _LOGGING_AVAILABLE = False
+
 PLATFORMS: list[Platform] = [
     Platform.SENSOR,
     Platform.WEATHER,

@@ -8,6 +8,7 @@ from typing import Any
 
 import aiohttp
 
+from ..logging import api_logger, set_request_id
 from .exceptions import (
     OsmerApiError,
     OsmerApiResponseError,
@@ -21,6 +22,7 @@ from .parser import (
 )
 from .xml_parser import parse_osmer_forecast_xml
 
+# Keep standard logger for compatibility
 _LOGGER = logging.getLogger(__name__)
 
 BASE_URL = "https://monitor.protezionecivile.fvg.it/api"
@@ -46,10 +48,15 @@ class OsmerApiClient:
         endpoint: str,
     ) -> dict[str, Any]:
         """Execute GET request."""
-
+        request_id = set_request_id()
         url = f"{BASE_URL}{endpoint}"
 
-        _LOGGER.debug("API GET request: %s", url)
+        api_logger.debug(
+            "API GET request",
+            url=url,
+            timeout=self._timeout,
+            request_id=request_id,
+        )
 
         try:
             async with self._session.get(
@@ -58,12 +65,22 @@ class OsmerApiClient:
             ) as response:
                 response.raise_for_status()
                 data = await response.json()
-                _LOGGER.debug("API response from %s: status=%s, size=%d bytes",
-                             url, response.status, len(str(data)))
+                api_logger.debug(
+                    "API response received",
+                    url=url,
+                    status=response.status,
+                    response_size_bytes=len(str(data)),
+                    request_id=request_id,
+                )
                 return data
 
         except aiohttp.ClientError as err:
-            _LOGGER.error("API connection error for %s: %s", url, err)
+            api_logger.error(
+                "API connection error",
+                url=url,
+                error=str(err),
+                request_id=request_id,
+            )
             raise OsmerConnectionError(f"Unable to connect to {url}") from err
 
     async def get_stations(self) -> list[Station]:
@@ -179,7 +196,7 @@ class OsmerApiClient:
         zone: str,
     ) -> list[OsmerForecastDay]:
         """Return forecast for zone directly from OSMER XML bulletin with 15-min RAM cache."""
-
+        request_id = set_request_id()
         now = datetime.now(UTC)
 
         if (
@@ -187,7 +204,12 @@ class OsmerApiClient:
             and self._xml_cache_time
             and (now - self._xml_cache_time) < timedelta(minutes=15)
         ):
-            _LOGGER.debug("Using cached forecast XML bulletin for zone %s", zone)
+            api_logger.debug(
+                "Using cached forecast XML",
+                zone=zone,
+                cache_age_minutes=(now - self._xml_cache_time).total_seconds() / 60,
+                request_id=request_id,
+            )
             forecasts = parse_osmer_forecast_xml(self._xml_cache, zone)
             if forecasts:
                 return forecasts
@@ -207,12 +229,22 @@ class OsmerApiClient:
 
         for date_str in dates_to_try:
             url = f"https://dev.meteo.fvg.it/xml/previsioni/PW{date_str}.xml"
-            _LOGGER.debug("Fetching forecast XML bulletin from %s", url)
+            api_logger.debug(
+                "Fetching forecast XML",
+                url=url,
+                date=date_str,
+                request_id=request_id,
+            )
             try:
                 async with self._session.get(
                     url, headers=headers, timeout=5
                 ) as response:
-                    _LOGGER.debug("HTTP status %s from %s", response.status, url)
+                    api_logger.debug(
+                        "HTTP response",
+                        url=url,
+                        status=response.status,
+                        request_id=request_id,
+                    )
                     if response.status == 200:
                         xml_text = await response.text()
                         if not xml_text.strip().startswith(("<!DOCTYPE", "<html")):
@@ -220,11 +252,12 @@ class OsmerApiClient:
                             self._xml_cache_time = now
 
                             forecasts = parse_osmer_forecast_xml(xml_text, zone)
-                            _LOGGER.debug(
-                                "Parsed %d forecast days for zone %s from %s",
-                                len(forecasts),
-                                zone,
-                                url,
+                            api_logger.info(
+                                "Parsed forecast XML",
+                                zone=zone,
+                                forecast_count=len(forecasts),
+                                url=url,
+                                request_id=request_id,
                             )
                             if forecasts:
                                 return forecasts
@@ -233,9 +266,19 @@ class OsmerApiClient:
                 OsmerApiError,
                 UnicodeDecodeError,
             ) as err:
-                _LOGGER.debug("Error fetching XML forecast from %s: %s", url, err)
+                api_logger.debug(
+                    "Error fetching XML forecast",
+                    url=url,
+                    error=str(err),
+                    request_id=request_id,
+                )
 
-        _LOGGER.warning("Could not retrieve forecast days for zone %s", zone)
+        api_logger.warning(
+            "Could not retrieve forecast days",
+            zone=zone,
+            dates_tried=dates_to_try,
+            request_id=request_id,
+        )
         return []
 
     async def get_alerts(self) -> list[OsmerAlert]:
@@ -244,20 +287,31 @@ class OsmerApiClient:
         Note: Alerts endpoint may not be available in all OSMER API versions.
         Returns empty list if endpoint doesn't exist or returns error.
         """
-        
+        request_id = set_request_id()
         url = f"{BASE_URL}/alerts"
-        _LOGGER.debug("Fetching alerts from %s", url)
+        api_logger.debug(
+            "Fetching alerts",
+            url=url,
+            request_id=request_id,
+        )
         
         try:
             data = await self._get("/alerts")
             
             if data.get("result") != "OK":
-                _LOGGER.debug("Unexpected alerts response: %s", data)
+                api_logger.debug(
+                    "Unexpected alerts response",
+                    response_result=data.get("result"),
+                    request_id=request_id,
+                )
                 return []
             
             alerts_data = data.get("alerts", [])
             if not alerts_data:
-                _LOGGER.debug("No active alerts found")
+                api_logger.debug(
+                    "No active alerts found",
+                    request_id=request_id,
+                )
                 return []
             
             alerts = []
@@ -274,15 +328,35 @@ class OsmerApiClient:
                         zones=alert_data.get("zones", []),
                     )
                     alerts.append(alert)
-                    _LOGGER.debug("Parsed alert: %s", alert)
+                    api_logger.debug(
+                        "Parsed alert",
+                        alert_id=alert.id,
+                        alert_title=alert.title,
+                        alert_level=alert.level,
+                        request_id=request_id,
+                    )
                 except (KeyError, TypeError, ValueError) as err:
-                    _LOGGER.warning("Error parsing alert: %s", err)
+                    api_logger.warning(
+                        "Error parsing alert",
+                        error=str(err),
+                        alert_data=str(alert_data)[:100],
+                        request_id=request_id,
+                    )
                     continue
             
+            api_logger.info(
+                "Fetched alerts",
+                alert_count=len(alerts),
+                request_id=request_id,
+            )
             return alerts
             
-        except Exception:  # noqa: BLE001
-            _LOGGER.debug("Alerts endpoint not available (404 or other error), returning empty list")
+        except Exception:  # noqa: BLE001 - We want to catch all exceptions and return empty list
+            api_logger.debug(
+                "Alerts endpoint not available",
+                error="404 or other error",
+                request_id=request_id,
+            )
             return []
 
     @staticmethod
