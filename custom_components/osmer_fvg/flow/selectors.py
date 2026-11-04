@@ -31,11 +31,11 @@ def build_selection_method_selector() -> vol.Schema:
                     options=[
                         SelectOptionDict(
                             value="station",
-                            label="📡 Seleziona stazione",
+                            label="📡 Seleziona da lista stazioni",
                         ),
                         SelectOptionDict(
                             value="address",
-                            label="📍 Cerca tramite indirizzo",
+                            label="📍 Trova stazione vicino a un indirizzo",
                         ),
                     ],
                     mode=SelectSelectorMode.LIST,
@@ -52,7 +52,11 @@ def build_address_selector() -> vol.Schema:
         {
             vol.Required(
                 "address",
-            ): TextSelector(TextSelectorConfig())
+            ): TextSelector(
+                TextSelectorConfig(
+                    placeholder="Inserisci indirizzo (es: Via Roma, Udine)",
+                )
+            )
         }
     )
 

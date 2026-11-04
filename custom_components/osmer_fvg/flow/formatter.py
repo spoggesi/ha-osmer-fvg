@@ -51,21 +51,20 @@ def station_label(
             station.latitude,
             station.longitude,
         )
-
         extra.append(f"📏 {distance:.1f} km")
 
-    if (
-        getattr(
-            station,
-            "altitude",
-            None,
-        )
-        is not None
-    ):
+    if station.altitude is not None:
         extra.append(f"⛰ {station.altitude} m")
+
+    # Add station ID for clarity
+    extra.append(f"ID: {station.id}")
 
     if sensors:
         extra.append(f"{len(sensors)} sensori")
+
+    if station.status:
+        status_icon = "✅" if "attivo" in station.status.lower() else "❌"
+        extra.append(f"{status_icon} {station.status}")
 
     if extra:
         return f"{sensor_text}{station.name} ({' | '.join(extra)})"
