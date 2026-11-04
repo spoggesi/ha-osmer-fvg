@@ -22,6 +22,7 @@ DEFAULT_RETRY_COUNT = 3
 DEFAULT_RETRY_DELAY = 5  # seconds between retries
 DEFAULT_TIMEOUT = 30  # seconds for API calls
 DEFAULT_OFFLINE_THRESHOLD = timedelta(minutes=30)  # when to consider data stale
+DEFAULT_ENABLE_ALERT_NOTIFICATIONS = True  # enable alert notifications by default
 
 # Option keys
 CONF_SCAN_INTERVAL = "scan_interval"
