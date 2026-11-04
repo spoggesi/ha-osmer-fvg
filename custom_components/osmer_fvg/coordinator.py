@@ -36,8 +36,8 @@ from .forecast_zone import get_osmer_zone
 _LOGGER = logging.getLogger(__name__)
 
 # Cache configuration
-COORDINATOR_CACHE_VERSION = 2
-COORDINATOR_CACHE_KEY = "osmer_fvg_coordinator_cache"
+COORDINATOR_CACHE_VERSION = 1
+COORDINATOR_CACHE_KEY = "osmer_fvg_coordinator_cache_v2"
 COORDINATOR_CACHE_TTL_DAYS = 30  # For station and sensor metadata
 COORDINATOR_MEASURES_CACHE_TTL_MINUTES = 15  # For measurements data
 COORDINATOR_FORECAST_CACHE_TTL_MINUTES = 30  # For forecast data

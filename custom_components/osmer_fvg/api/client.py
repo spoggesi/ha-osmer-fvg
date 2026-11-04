@@ -239,7 +239,11 @@ class OsmerApiClient:
         return []
 
     async def get_alerts(self) -> list[OsmerAlert]:
-        """Return active alerts from OSMER FVG API."""
+        """Return active alerts from OSMER FVG API.
+        
+        Note: Alerts endpoint may not be available in all OSMER API versions.
+        Returns empty list if endpoint doesn't exist or returns error.
+        """
         
         url = f"{BASE_URL}/alerts"
         _LOGGER.debug("Fetching alerts from %s", url)
@@ -278,7 +282,7 @@ class OsmerApiClient:
             return alerts
             
         except Exception:  # noqa: BLE001
-            _LOGGER.warning("Error fetching alerts")
+            _LOGGER.debug("Alerts endpoint not available (404 or other error), returning empty list")
             return []
 
     @staticmethod
