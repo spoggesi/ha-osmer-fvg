@@ -13,6 +13,14 @@ from .api.client import OsmerApiClient
 from .const import DOMAIN
 from .coordinator import OsmerDataUpdateCoordinator
 
+# Import diagnostics module to ensure it's loaded
+try:
+    from . import diagnostics as _  # noqa: F401
+
+    _DIAGNOSTICS_AVAILABLE = True
+except ImportError:
+    _DIAGNOSTICS_AVAILABLE = False
+
 PLATFORMS: list[Platform] = [
     Platform.SENSOR,
     Platform.WEATHER,

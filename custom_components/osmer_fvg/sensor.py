@@ -115,6 +115,13 @@ async def async_setup_entry(
         )
     )
 
+    # Add health sensor for diagnostics
+    entities.append(
+        OsmerHealthSensor(
+            coordinator,
+        )
+    )
+
     async_add_entities(entities)
 
 
@@ -545,3 +552,121 @@ class OsmerAlertsSensor(
         if value == "none":
             return "Nessuna allerta attiva"
         return f"Allerta {value.upper()}"
+
+
+class OsmerHealthSensor(
+    SensorEntity,
+):
+    """Representation of OSMER integration health sensor."""
+
+    _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:heart-pulse"
+    _attr_state_class = None
+
+    def __init__(
+        self,
+        coordinator: OsmerDataUpdateCoordinator,
+    ) -> None:
+        """Initialize sensor."""
+
+        self.coordinator = coordinator
+        station = coordinator.data.station
+        self._attr_unique_id = f"osmer_{station.id}_health"
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return device information."""
+
+        station = self.coordinator.data.station
+
+        return DeviceInfo(
+            identifiers={(DOMAIN, str(station.id))},
+            name=f"OSMER {station.name}",
+            manufacturer="OSMER FVG",
+            model="Weather Station",
+            configuration_url="https://monitor.protezionecivile.fvg.it",
+            sw_version=VERSION,
+        )
+
+    @property
+    def native_value(self) -> str:
+        """Return health status."""
+        if self.coordinator.is_offline:
+            return "offline"
+        
+        if not self.coordinator.data:
+            return "initializing"
+        
+        if self.coordinator.data.station is None:
+            return "error"
+        
+        return "ok"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return detailed health information."""
+        from .const import VERSION
+
+        station = self.coordinator.data.station if self.coordinator.data else None
+        
+        attrs: dict[str, Any] = {
+            "status": self.native_value,
+            "version": VERSION,
+            "is_offline": self.coordinator.is_offline,
+            "last_update_success": (
+                self.coordinator.osmer_last_update_success.isoformat()
+                if self.coordinator.osmer_last_update_success
+                else None
+            ),
+            "update_interval_seconds": self.coordinator.update_interval.total_seconds(),
+        }
+        
+        if station:
+            attrs["station_id"] = station.id
+            attrs["station_name"] = station.name
+            attrs["station_latitude"] = station.latitude
+            attrs["station_longitude"] = station.longitude
+            attrs["station_altitude"] = station.altitude
+        
+        if self.coordinator.data:
+            attrs["sensors_count"] = len(self.coordinator.data.sensors)
+            attrs["measures_count"] = len(self.coordinator.data.measures)
+            attrs["forecasts_count"] = len(self.coordinator.data.forecasts)
+            attrs["alerts_count"] = len(self.coordinator.data.alerts)
+            
+            # List of active sensors
+            attrs["active_sensors"] = list(self.coordinator.data.sensors.keys())
+            
+            # List of sensors with data
+            attrs["sensors_with_data"] = list(self.coordinator.data.measures.keys())
+        
+        # Options
+        if self.coordinator._options:
+            attrs["options"] = {
+                "scan_interval": self.coordinator._options.get("scan_interval", 15),
+                "retry_count": self.coordinator._options.get("retry_count", 3),
+                "retry_delay": self.coordinator._options.get("retry_delay", 5),
+                "timeout": self.coordinator._options.get("timeout", 30),
+            }
+        
+        # Cache info
+        attrs["cache"] = {
+            "loaded": self.coordinator._cache_loaded,
+            "version": self.coordinator._cache_data.get("version") if self.coordinator._cache_data else None,
+        }
+        
+        return attrs
+
+    @property
+    def state(self) -> str:
+        """Return state with friendly name."""
+        value = self.native_value
+        if value == "ok":
+            return "✅ OK"
+        elif value == "offline":
+            return "⚠️ Offline"
+        elif value == "initializing":
+            return "⏳ Inizializzazione"
+        else:
+            return "❌ Errore"
