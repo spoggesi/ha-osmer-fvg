@@ -1,0 +1,55 @@
+test_notification:
+  name: Send test notification
+  description: Send a test notification to verify notification setup
+  fields:
+    message:
+      name: Message
+      description: Custom message for the test notification
+      required: false
+      example: "This is a test notification"
+      default: "Test notification from OSMER FVG"
+      selector:
+        text:
+
+alert_notification:
+  name: Send alert notification
+  description: Send an alert notification with custom details
+  fields:
+    title:
+      name: Title
+      description: Notification title
+      required: false
+      example: "Severe Weather Alert"
+      default: "OSMER FVG Alert"
+      selector:
+        text:
+    message:
+      name: Message
+      description: Alert message content
+      required: false
+      example: "Heavy rain expected in the next hours"
+      default: ""
+      selector:
+        text:
+    level:
+      name: Alert level
+      description: Alert severity level
+      required: false
+      example: "red"
+      default: "info"
+      selector:
+        select:
+          options:
+            - "green"
+            - "yellow"
+            - "orange"
+            - "red"
+          mode: dropdown
+    zones:
+      name: Affected zones
+      description: List of affected zones
+      required: false
+      example: '["Friuli", "Venezia Giulia"]'
+      default: []
+      selector:
+        text:

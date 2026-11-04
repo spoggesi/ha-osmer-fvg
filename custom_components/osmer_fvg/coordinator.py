@@ -649,7 +649,7 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
                     },
                 },
             )
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001 - We want to catch all notification errors
             coordinator_logger.warning(
                 "Failed to send alert notification",
                 error=str(err),
