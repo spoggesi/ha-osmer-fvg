@@ -394,40 +394,31 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
                         await asyncio.sleep(self._retry_delay)
 
             # 6. Scarica le allerte con retry
+            # Note: Alerts endpoint may not exist (404), so we catch connection errors
             alerts = []
-            for attempt in range(self._retry_count):
-                try:
-                    alerts = await asyncio.wait_for(
-                        self.client.get_alerts(),
-                        timeout=self._timeout,
-                    )
-                    if alerts:
-                        coordinator_logger.info(
-                            "Fetched alerts",
-                            alert_count=len(alerts),
-                            request_id=request_id,
-                        )
-                    break
-                except (TimeoutError, asyncio.CancelledError) as err:
-                    coordinator_logger.warning(
-                        "Alert fetch timeout",
-                        attempt=attempt + 1,
-                        retry_count=self._retry_count,
-                        error=str(err),
+            try:
+                alerts = await asyncio.wait_for(
+                    self.client.get_alerts(),
+                    timeout=self._timeout,
+                )
+                if alerts:
+                    coordinator_logger.info(
+                        "Fetched alerts",
+                        alert_count=len(alerts),
                         request_id=request_id,
                     )
-                    if attempt < self._retry_count - 1:
-                        await asyncio.sleep(self._retry_delay)
-                except Exception as err:  # noqa: BLE001
-                    coordinator_logger.warning(
-                        "Alert fetch failed",
-                        attempt=attempt + 1,
-                        retry_count=self._retry_count,
-                        error=str(err),
-                        request_id=request_id,
-                    )
-                    if attempt < self._retry_count - 1:
-                        await asyncio.sleep(self._retry_delay)
+            except (TimeoutError, asyncio.CancelledError) as err:
+                coordinator_logger.debug(
+                    "Alert fetch timed out",
+                    error=str(err),
+                    request_id=request_id,
+                )
+            except Exception:  # noqa: BLE001 - Alerts endpoint may not exist
+                # Don't log errors for alerts endpoint as it may not be available
+                coordinator_logger.debug(
+                    "Alerts endpoint not available, continuing without alerts",
+                    request_id=request_id,
+                )
 
             # Log completion
             coordinator_logger.info(

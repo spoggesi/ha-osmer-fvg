@@ -26,7 +26,9 @@ def station_label(
 ) -> str:
     """Return formatted station label with unique sensor icons."""
 
-    sensors = sensors or []
+    # Ensure sensors is always a list
+    if sensors is None or not isinstance(sensors, list):
+        sensors = []
 
     # Deduplica le icone per tipologia di sensore
     unique_icons: list[str] = []
@@ -40,7 +42,7 @@ def station_label(
     if sensor_icons:
         sensor_text = f"{sensor_icons} "
     else:
-        sensor_text = ""
+        sensor_text = "📊 "  # Default icon if no sensors
 
     extra = []
 
@@ -59,8 +61,8 @@ def station_label(
     # Add station ID for clarity
     extra.append(f"ID: {station.id}")
 
-    if sensors:
-        extra.append(f"{len(sensors)} sensori")
+    # Always show sensor count (0 or more)
+    extra.append(f"{len(sensors)} sensori")
 
     if station.status:
         status_icon = "✅" if "attivo" in station.status.lower() else "❌"

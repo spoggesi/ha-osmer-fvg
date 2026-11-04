@@ -48,7 +48,7 @@ class NominatimGeocoder:
             "User-Agent": "HomeAssistant-OSMER-FVG",
         }
 
-        _LOGGER.debug(
+        _LOGGER.info(
             "Searching address: %s",
             query,
         )
@@ -67,16 +67,19 @@ class NominatimGeocoder:
                     reset_request_id()
 
         except (TimeoutError, aiohttp.ClientError) as err:
-            _LOGGER.warning(
-                "Geocoder error: %s",
+            _LOGGER.error(
+                "Geocoder connection error for '%s': %s",
+                query,
                 err,
             )
             reset_request_id()
             return None
         except Exception as err:  # noqa: BLE001
-            _LOGGER.warning(
-                "Geocoder unexpected error: %s",
+            _LOGGER.error(
+                "Geocoder unexpected error for '%s': %s (type: %s)",
+                query,
                 err,
+                type(err).__name__,
             )
             reset_request_id()
             return None

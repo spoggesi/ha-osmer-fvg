@@ -226,7 +226,7 @@ MONITORED_SENSORS = {
     },
     "ABS_HUMIDITY": {
         "name": "Umidità assoluta",
-        "device_class": SensorDeviceClass.HUMIDITY,
+        "device_class": None,  # No device class for absolute humidity in g/m³
         "state_class": SensorStateClass.MEASUREMENT,
         "unit": "g/m³",
         "icon": "mdi:water",
