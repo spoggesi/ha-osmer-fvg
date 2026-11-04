@@ -85,3 +85,21 @@ class OsmerForecastDay:
     temp_max: float | None
     precipitation_probability: int | None = None
     summary: str | None = None
+
+
+@dataclass(frozen=True)
+class OsmerAlert:
+    """Alert model from OSMER FVG."""
+
+    id: str
+    title: str
+    description: str
+    level: str  # "green", "yellow", "orange", "red"
+    type: str  # "meteorological", "hydrological", "etc"
+    start_time: datetime | None
+    end_time: datetime | None
+    zones: list[str]  # List of affected zones (Z1, Z2, Z3, Z4)
+    
+    def __str__(self) -> str:
+        """Return human readable representation."""
+        return f"[{self.level.upper()}] {self.title}: {self.description}"

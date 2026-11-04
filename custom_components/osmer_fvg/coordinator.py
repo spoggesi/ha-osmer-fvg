@@ -16,7 +16,7 @@ from homeassistant.helpers.update_coordinator import (
 )
 
 from .api.client import OsmerApiClient
-from .api.models import Measure, OsmerForecastDay, Sensor, Station
+from .api.models import Measure, OsmerAlert, OsmerForecastDay, Sensor, Station
 from .const import (
     CONF_OFFLINE_THRESHOLD,
     CONF_RETRY_COUNT,
@@ -36,9 +36,12 @@ from .forecast_zone import get_osmer_zone
 _LOGGER = logging.getLogger(__name__)
 
 # Cache configuration
-COORDINATOR_CACHE_VERSION = 1
+COORDINATOR_CACHE_VERSION = 2
 COORDINATOR_CACHE_KEY = "osmer_fvg_coordinator_cache"
-COORDINATOR_CACHE_TTL_DAYS = 30
+COORDINATOR_CACHE_TTL_DAYS = 30  # For station and sensor metadata
+COORDINATOR_MEASURES_CACHE_TTL_MINUTES = 15  # For measurements data
+COORDINATOR_FORECAST_CACHE_TTL_MINUTES = 30  # For forecast data
+COORDINATOR_ALERTS_CACHE_TTL_MINUTES = 15  # For alerts data
 
 
 @dataclass
@@ -49,6 +52,7 @@ class OsmerData:
     sensors: dict[str, Sensor]
     measures: dict[str, Measure]
     forecasts: list[OsmerForecastDay] = field(default_factory=list)
+    alerts: list[OsmerAlert] = field(default_factory=list)
 
 
 class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
@@ -129,20 +133,41 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
         await self._cache_store.async_save(self._cache_data)
         _LOGGER.debug("Saved coordinator cache for station %s", self.station_id)
 
-    def _is_cache_valid(self) -> bool:
-        """Check if cache is still valid."""
+    def _is_cache_valid(self, cache_type: str = "metadata") -> bool:
+        """Check if cache is still valid for a specific type.
+        
+        Args:
+            cache_type: Type of cache to validate
+                - "metadata": Station and sensor data (30 days TTL)
+                - "measures": Measurement data (15 minutes TTL)
+                - "forecast": Forecast data (30 minutes TTL)
+                - "alerts": Alert data (15 minutes TTL)
+        """
         if not self._cache_loaded or not self._cache_data:
             return False
         if self._cache_data.get("version") != COORDINATOR_CACHE_VERSION:
             return False
+        
         timestamp = self._cache_data.get("updated")
         if not timestamp:
             return False
+        
         try:
             updated = datetime.fromisoformat(timestamp)
-            return datetime.now(UTC) - updated <= timedelta(
-                days=COORDINATOR_CACHE_TTL_DAYS
-            )
+            now = datetime.now(UTC)
+            
+            if cache_type == "metadata":
+                ttl = timedelta(days=COORDINATOR_CACHE_TTL_DAYS)
+            elif cache_type == "measures":
+                ttl = timedelta(minutes=COORDINATOR_MEASURES_CACHE_TTL_MINUTES)
+            elif cache_type == "forecast":
+                ttl = timedelta(minutes=COORDINATOR_FORECAST_CACHE_TTL_MINUTES)
+            elif cache_type == "alerts":
+                ttl = timedelta(minutes=COORDINATOR_ALERTS_CACHE_TTL_MINUTES)
+            else:
+                ttl = timedelta(days=COORDINATOR_CACHE_TTL_DAYS)
+            
+            return (now - updated) <= ttl
         except ValueError:
             return False
 
@@ -184,8 +209,10 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
                 _LOGGER.debug("Cache loaded for station %s", self.station_id)
 
             # 1. Recupera i dati della stazione (da cache o API con retry)
+            # Usiamo TTL lungo per i metadati della stazione
             if self._station is None:
-                self._station = self._get_cached_station()
+                if self._is_cache_valid("metadata"):
+                    self._station = self._get_cached_station()
                 if self._station is None:
                     self._station = await self._fetch_with_retry(
                         self.client.get_station,
@@ -198,8 +225,10 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
                         _LOGGER.debug("Fetched station %s from API", self.station_id)
 
             # 2. Recupera l'elenco dei sensori (da cache o API con retry)
+            # Usiamo TTL lungo per i metadati dei sensori
             if self._sensors_dict is None:
-                self._sensors_dict = self._get_cached_sensors()
+                if self._is_cache_valid("metadata"):
+                    self._sensors_dict = self._get_cached_sensors()
                 if not self._sensors_dict:
                     sensors = await self._fetch_with_retry(
                         self.client.get_sensors,
@@ -296,12 +325,41 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
                     if attempt < self._retry_count - 1:
                         await asyncio.sleep(self._retry_delay)
 
+            # 6. Scarica le allerte con retry
+            alerts = []
+            for attempt in range(self._retry_count):
+                try:
+                    alerts = await asyncio.wait_for(
+                        self.client.get_alerts(),
+                        timeout=self._timeout,
+                    )
+                    if alerts:
+                        _LOGGER.debug("Fetched %d alerts", len(alerts))
+                    break
+                except (TimeoutError, asyncio.CancelledError):
+                    _LOGGER.warning(
+                        "Attempt %d/%d timeout for alerts",
+                        attempt + 1,
+                        self._retry_count,
+                    )
+                    if attempt < self._retry_count - 1:
+                        await asyncio.sleep(self._retry_delay)
+                except Exception:  # noqa: BLE001
+                    _LOGGER.warning(
+                        "Attempt %d/%d failed for alerts",
+                        attempt + 1,
+                        self._retry_count,
+                    )
+                    if attempt < self._retry_count - 1:
+                        await asyncio.sleep(self._retry_delay)
+
             # Log completion
             _LOGGER.debug(
-                "Data update completed for station %s: %d sensors, %d forecasts",
+                "Data update completed for station %s: %d sensors, %d forecasts, %d alerts",
                 self.station_id,
                 len(measures_dict),
                 len(forecasts),
+                len(alerts),
             )
 
             # Store last known successful data
@@ -310,6 +368,7 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
                 sensors=self._sensors_dict,
                 measures=measures_dict,
                 forecasts=forecasts,
+                alerts=alerts,
             )
             self._last_known_data = result
             self._osmer_last_update_success = datetime.now(UTC)

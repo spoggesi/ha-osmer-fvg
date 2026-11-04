@@ -199,6 +199,39 @@ MONITORED_SENSORS = {
         "unit": "sts",
         "icon": "mdi:information-outline",
     },
+    # Derived sensors (calculated from base sensors)
+    "DEW_POINT": {
+        "name": "Punto di rugiada",
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "unit": "°C",
+        "icon": "mdi:thermometer",
+        "derived": True,
+    },
+    "HEAT_INDEX": {
+        "name": "Indice di calore (Feels Like)",
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "unit": "°C",
+        "icon": "mdi:thermometer-plus",
+        "derived": True,
+    },
+    "WIND_CHILL": {
+        "name": "Wind Chill",
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "unit": "°C",
+        "icon": "mdi:thermometer-minus",
+        "derived": True,
+    },
+    "ABS_HUMIDITY": {
+        "name": "Umidità assoluta",
+        "device_class": SensorDeviceClass.HUMIDITY,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "unit": "g/m³",
+        "icon": "mdi:water",
+        "derived": True,
+    },
 }
 
 CONDITION_MAP = {

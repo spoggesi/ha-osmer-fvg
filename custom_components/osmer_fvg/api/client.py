@@ -13,7 +13,7 @@ from .exceptions import (
     OsmerApiResponseError,
     OsmerConnectionError,
 )
-from .models import Measure, OsmerForecastDay, Sensor, Station
+from .models import Measure, OsmerAlert, OsmerForecastDay, Sensor, Station
 from .parser import (
     parse_measure,
     parse_sensor,
@@ -237,3 +237,60 @@ class OsmerApiClient:
 
         _LOGGER.warning("Could not retrieve forecast days for zone %s", zone)
         return []
+
+    async def get_alerts(self) -> list[OsmerAlert]:
+        """Return active alerts from OSMER FVG API."""
+        
+        url = f"{BASE_URL}/alerts"
+        _LOGGER.debug("Fetching alerts from %s", url)
+        
+        try:
+            data = await self._get("/alerts")
+            
+            if data.get("result") != "OK":
+                _LOGGER.debug("Unexpected alerts response: %s", data)
+                return []
+            
+            alerts_data = data.get("alerts", [])
+            if not alerts_data:
+                _LOGGER.debug("No active alerts found")
+                return []
+            
+            alerts = []
+            for alert_data in alerts_data:
+                try:
+                    alert = OsmerAlert(
+                        id=str(alert_data.get("id", "")),
+                        title=str(alert_data.get("title", "")),
+                        description=str(alert_data.get("description", "")),
+                        level=str(alert_data.get("level", "green")),
+                        type=str(alert_data.get("type", "unknown")),
+                        start_time=self._parse_datetime(alert_data.get("start_time")),
+                        end_time=self._parse_datetime(alert_data.get("end_time")),
+                        zones=alert_data.get("zones", []),
+                    )
+                    alerts.append(alert)
+                    _LOGGER.debug("Parsed alert: %s", alert)
+                except (KeyError, TypeError, ValueError) as err:
+                    _LOGGER.warning("Error parsing alert: %s", err)
+                    continue
+            
+            return alerts
+            
+        except Exception:  # noqa: BLE001
+            _LOGGER.warning("Error fetching alerts")
+            return []
+
+    @staticmethod
+    def _parse_datetime(value: Any) -> datetime | None:
+        """Parse datetime from various formats."""
+        if value is None:
+            return None
+        
+        try:
+            if isinstance(value, str):
+                # Try ISO format first
+                return datetime.fromisoformat(value)
+            return None
+        except (ValueError, TypeError):
+            return None

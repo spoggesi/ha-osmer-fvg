@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -19,6 +20,7 @@ from homeassistant.helpers.entity_platform import (
 
 from .const import DOMAIN, MONITORED_SENSORS, VERSION
 from .coordinator import OsmerDataUpdateCoordinator
+from .helpers.calculations import calculate_derived_sensors
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -68,6 +70,48 @@ async def async_setup_entry(
         OsmerLastUpdateSensor(
             coordinator,
             timestamp_description,
+        )
+    )
+
+    # Add derived sensors (if base sensors are available)
+    # Check which derived sensors can be created based on available base sensors
+    available_base_sensors = set(coordinator.data.sensors.keys())
+    derived_sensors_to_create = []
+    
+    for sensor_code, config in MONITORED_SENSORS.items():
+        if config.get("derived") and sensor_code not in coordinator.enabled_sensors:
+            # Check if we have the required base sensors
+            required_base = []
+            if sensor_code == "DEW_POINT" or sensor_code == "HEAT_INDEX" or sensor_code == "ABS_HUMIDITY":
+                required_base = ["T", "U"]
+            elif sensor_code == "WIND_CHILL":
+                required_base = ["T", "VV"]
+            
+            if all(base in available_base_sensors for base in required_base):
+                derived_sensors_to_create.append(sensor_code)
+    
+    for sensor_code in derived_sensors_to_create:
+        sensor_config = MONITORED_SENSORS[sensor_code]
+        description = SensorEntityDescription(
+            key=sensor_code,
+            name=sensor_config["name"],
+            native_unit_of_measurement=sensor_config["unit"],
+            device_class=sensor_config["device_class"],
+            state_class=sensor_config["state_class"],
+            icon=sensor_config["icon"],
+        )
+        entities.append(
+            OsmerDerivedSensor(
+                coordinator,
+                sensor_code,
+                description,
+            )
+        )
+
+    # Add alerts sensor
+    entities.append(
+        OsmerAlertsSensor(
+            coordinator,
         )
     )
 
@@ -276,3 +320,228 @@ class OsmerLastUpdateSensor(
         if value and self.coordinator.is_offline:
             return f"{value} (offline)"
         return value
+
+
+class OsmerDerivedSensor(
+    SensorEntity,
+):
+    """Representation of a derived OSMER sensor (calculated from base sensors)."""
+
+    _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(
+        self,
+        coordinator: OsmerDataUpdateCoordinator,
+        sensor_code: str,
+        description: SensorEntityDescription,
+    ) -> None:
+        """Initialize sensor."""
+
+        self.coordinator = coordinator
+        self.sensor_code = sensor_code
+        self.entity_description = description
+
+        station = coordinator.data.station
+        self._attr_unique_id = f"osmer_{station.id}_{sensor_code}"
+        self._last_known_value: float | None = None
+        self._last_known_timestamp: str | None = None
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return device information."""
+
+        station = self.coordinator.data.station
+
+        return DeviceInfo(
+            identifiers={(DOMAIN, str(station.id))},
+            name=f"OSMER {station.name}",
+            manufacturer="OSMER FVG",
+            model="Weather Station",
+            configuration_url="https://monitor.protezionecivile.fvg.it",
+            sw_version=VERSION,
+        )
+
+    @property
+    def native_value(self) -> float | None:
+        """Return calculated value for derived sensor."""
+
+        if not self.coordinator.data or not self.coordinator.data.measures:
+            if self.coordinator.is_offline and self._last_known_value is not None:
+                return self._last_known_value
+            return None
+
+        derived_values = calculate_derived_sensors(
+            self.coordinator.data.measures
+        )
+        
+        value = derived_values.get(self.sensor_code)
+        
+        if value is not None:
+            self._last_known_value = value
+            self._last_known_timestamp = datetime.now().isoformat()
+            return value
+        
+        if self.coordinator.is_offline and self._last_known_value is not None:
+            return self._last_known_value
+        
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return extra state attributes."""
+
+        station = self.coordinator.data.station
+        
+        attrs: dict[str, Any] = {
+            "station": station.name,
+            "station_id": station.id,
+            "sensor_code": self.sensor_code,
+            "sensor_type": "derived",
+            "last_known_value": self._last_known_value,
+            "last_known_timestamp": self._last_known_timestamp,
+            "is_offline": self.coordinator.is_offline,
+            "offline_since": (
+                self.coordinator.osmer_last_update_success.isoformat()
+                if self.coordinator.is_offline and self.coordinator.osmer_last_update_success
+                else None
+            ),
+        }
+        
+        if self.sensor_code in ["DEW_POINT", "HEAT_INDEX", "ABS_HUMIDITY"]:
+            if "T" in self.coordinator.data.measures:
+                attrs["base_temperature"] = self.coordinator.data.measures["T"].value
+            if "U" in self.coordinator.data.measures:
+                attrs["base_humidity"] = self.coordinator.data.measures["U"].value
+        
+        if self.sensor_code == "WIND_CHILL":
+            if "T" in self.coordinator.data.measures:
+                attrs["base_temperature"] = self.coordinator.data.measures["T"].value
+            if "VV" in self.coordinator.data.measures:
+                attrs["base_wind_speed"] = self.coordinator.data.measures["VV"].value
+        
+        return attrs
+
+    async def async_added_to_hass(self) -> None:
+        """Initialize last known value when entity is added."""
+        await super().async_added_to_hass()
+        
+        if self.coordinator.data and self.coordinator.data.measures:
+            derived_values = calculate_derived_sensors(
+                self.coordinator.data.measures
+            )
+            value = derived_values.get(self.sensor_code)
+            if value is not None:
+                self._last_known_value = value
+                self._last_known_timestamp = datetime.now().isoformat()
+
+
+class OsmerAlertsSensor(
+    SensorEntity,
+):
+    """Representation of OSMER alerts sensor."""
+
+    _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:alert-circle-outline"
+
+    def __init__(
+        self,
+        coordinator: OsmerDataUpdateCoordinator,
+    ) -> None:
+        """Initialize sensor."""
+
+        self.coordinator = coordinator
+        station = coordinator.data.station
+        self._attr_unique_id = f"osmer_{station.id}_alerts"
+        self._last_known_alerts: list[Any] = []
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return device information."""
+
+        station = self.coordinator.data.station
+
+        return DeviceInfo(
+            identifiers={(DOMAIN, str(station.id))},
+            name=f"OSMER {station.name}",
+            manufacturer="OSMER FVG",
+            model="Weather Station",
+            configuration_url="https://monitor.protezionecivile.fvg.it",
+            sw_version=VERSION,
+        )
+
+    @property
+    def native_value(self) -> str:
+        """Return the highest alert level or 'none'."""
+        if not self.coordinator.data or not self.coordinator.data.alerts:
+            return "none"
+        
+        # Update last known alerts
+        self._last_known_alerts = self.coordinator.data.alerts
+        
+        # Determine highest alert level
+        level_priority = {"green": 0, "yellow": 1, "orange": 2, "red": 3}
+        max_level = "none"
+        max_priority = -1
+        
+        for alert in self.coordinator.data.alerts:
+            priority = level_priority.get(alert.level.lower(), -1)
+            if priority > max_priority:
+                max_priority = priority
+                max_level = alert.level.lower()
+        
+        return max_level if max_level != "none" else "none"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return extra state attributes."""
+        if not self.coordinator.data:
+            return {
+                "active_alerts": 0,
+                "last_known_alerts": self._last_known_alerts,
+                "is_offline": self.coordinator.is_offline,
+            }
+        
+        alerts = self.coordinator.data.alerts
+        
+        attrs: dict[str, Any] = {
+            "active_alerts": len(alerts),
+            "alerts": [
+                {
+                    "id": alert.id,
+                    "title": alert.title,
+                    "description": alert.description,
+                    "level": alert.level,
+                    "type": alert.type,
+                    "start_time": alert.start_time.isoformat() if alert.start_time else None,
+                    "end_time": alert.end_time.isoformat() if alert.end_time else None,
+                    "zones": alert.zones,
+                }
+                for alert in alerts
+            ],
+            "last_known_alerts": [
+                {
+                    "id": alert.id,
+                    "title": alert.title,
+                    "level": alert.level,
+                }
+                for alert in self._last_known_alerts
+            ],
+            "is_offline": self.coordinator.is_offline,
+            "offline_since": (
+                self.coordinator.osmer_last_update_success.isoformat()
+                if self.coordinator.is_offline and self.coordinator.osmer_last_update_success
+                else None
+            ),
+        }
+        
+        return attrs
+
+    @property
+    def state(self) -> str:
+        """Return the state with additional info."""
+        value = self.native_value
+        if value == "none":
+            return "Nessuna allerta attiva"
+        return f"Allerta {value.upper()}"
