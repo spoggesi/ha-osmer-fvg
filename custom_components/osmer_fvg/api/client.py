@@ -351,7 +351,7 @@ class OsmerApiClient:
             )
             return alerts
             
-        except Exception:  # noqa: BLE001 - We want to catch all exceptions and return empty list
+        except (OsmerConnectionError, Exception):  # noqa: BLE001
             api_logger.debug(
                 "Alerts endpoint not available",
                 error="404 or other error",

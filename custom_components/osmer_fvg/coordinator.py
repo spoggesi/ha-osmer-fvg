@@ -310,7 +310,7 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
                                 sensor_code=sensor_code,
                                 sensor_name=sensor.name,
                                 value=measure.value,
-                                unit=measure.unit,
+                                unit=sensor.unit,
                                 attempt=attempt + 1,
                                 request_id=request_id,
                             )

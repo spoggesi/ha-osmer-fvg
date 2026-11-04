@@ -73,6 +73,7 @@ class Measure:
     longitude: float
 
     value: float | None
+    unit: str | None = None
 
 
 @dataclass(frozen=True)

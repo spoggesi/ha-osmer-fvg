@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+from typing import Any
 
 import aiohttp
+
+from ..logging import reset_request_id, set_request_id
 
 _LOGGER = logging.getLogger(__name__)
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
+DEFAULT_GEOCODE_TIMEOUT = 20  # seconds
 
 
 class NominatimGeocoder:
@@ -17,20 +22,23 @@ class NominatimGeocoder:
     def __init__(
         self,
         session: aiohttp.ClientSession,
+        timeout: int = DEFAULT_GEOCODE_TIMEOUT,
     ) -> None:
         """Initialize the geocoder."""
 
         self._session = session
+        self._timeout = timeout
 
     async def geocode(
         self,
         address: str,
     ) -> tuple[float, float] | None:
         """Return latitude and longitude."""
+        set_request_id()
 
         query = f"{address}, Friuli Venezia Giulia, Italia"
 
-        params = {
+        params: dict[str, Any] = {
             "q": query,
             "format": "jsonv2",
             "limit": 1,
@@ -46,30 +54,52 @@ class NominatimGeocoder:
         )
 
         try:
-            async with self._session.get(
-                NOMINATIM_URL,
-                params=params,
-                headers=headers,
-                timeout=20,
-            ) as response:
-                response.raise_for_status()
+            async with asyncio.timeout(self._timeout):
+                async with self._session.get(
+                    NOMINATIM_URL,
+                    params=params,
+                    headers=headers,
+                    timeout=self._timeout,
+                ) as response:
+                    response.raise_for_status()
 
-                results = await response.json()
+                    results = await response.json()
+                    reset_request_id()
 
-        except aiohttp.ClientError as err:
-            _LOGGER.error(
+        except (TimeoutError, aiohttp.ClientError) as err:
+            _LOGGER.warning(
                 "Geocoder error: %s",
                 err,
             )
-
+            reset_request_id()
+            return None
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning(
+                "Geocoder unexpected error: %s",
+                err,
+            )
+            reset_request_id()
             return None
 
         if not results:
+            _LOGGER.debug(
+                "No geocoding results for: %s",
+                query,
+            )
+            reset_request_id()
             return None
 
         result = results[0]
 
-        return (
-            float(result["lat"]),
-            float(result["lon"]),
+        lat = float(result["lat"])
+        lon = float(result["lon"])
+
+        _LOGGER.debug(
+            "Geocoding successful: %s -> (%s, %s)",
+            address,
+            lat,
+            lon,
         )
+        reset_request_id()
+
+        return (lat, lon)
