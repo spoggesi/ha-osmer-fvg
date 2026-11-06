@@ -105,7 +105,7 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
         self._station: Station | None = None
         self._sensors_dict: dict[str, Sensor] | None = None
         self._zone: str | None = None
-        
+
         self._last_known_data: OsmerData | None = None
         self._osmer_last_update_success: datetime | None = None
 
@@ -150,15 +150,15 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
             return False
         if self._cache_data.get("version") != COORDINATOR_CACHE_VERSION:
             return False
-        
+
         timestamp = self._cache_data.get("updated")
         if not timestamp:
             return False
-        
+
         try:
             updated = datetime.fromisoformat(timestamp)
             now = datetime.now(UTC)
-            
+
             if cache_type == "metadata":
                 ttl = timedelta(days=COORDINATOR_CACHE_TTL_DAYS)
             elif cache_type == "measures":
@@ -167,7 +167,7 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
                 ttl = timedelta(minutes=COORDINATOR_FORECAST_CACHE_TTL_MINUTES)
             else:
                 ttl = timedelta(days=COORDINATOR_CACHE_TTL_DAYS)
-            
+
             return (now - updated) <= ttl
         except ValueError:
             return False
@@ -330,7 +330,7 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
                 request_id=request_id,
             )
             reset_request_id()
-            
+
             now = datetime.now(UTC)
             if (
                 self._last_known_data is not None
@@ -338,10 +338,10 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
                 and (now - self._osmer_last_update_success) > self._offline_threshold
             ):
                 return self._last_known_data
-            
+
             if self._last_known_data is None:
                 raise UpdateFailed("Error communicating with API") from err
-            
+
             return self._last_known_data
 
     async def _fetch_with_retry(
@@ -368,7 +368,7 @@ class OsmerDataUpdateCoordinator(DataUpdateCoordinator[OsmerData]):
                 last_error = err
                 if attempt < self._retry_count - 1:
                     await asyncio.sleep(self._retry_delay)
-        
+
         coordinator_logger.error(
             "All retry attempts failed",
             operation=operation_name,
