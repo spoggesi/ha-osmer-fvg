@@ -6,12 +6,13 @@ import logging
 from datetime import datetime
 from typing import Any
 
+# DOPO (CORRETTO)
 from homeassistant.components.sensor import (
-    EntityCategory,
     SensorEntity,
     SensorEntityDescription,
 )
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import (
