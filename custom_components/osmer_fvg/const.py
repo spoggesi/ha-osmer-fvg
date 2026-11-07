@@ -8,7 +8,7 @@ from homeassistant.components.sensor import (
 )
 
 DOMAIN = "osmer_fvg"
-VERSION = "0.4.4"
+VERSION = "0.4.5"
 
 # Multi-station support
 CONF_STATION_IDS = "station_ids"
